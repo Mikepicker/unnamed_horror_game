@@ -1,0 +1,6 @@
+.vscode
+*.dSYM
+game/microdrag
+*.o
+game/maps/*
+tags

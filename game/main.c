@@ -1,0 +1,33 @@
+#include "../engine/seaengine.h"
+
+#include "game.h"
+
+int main()
+{
+  // Init context
+  GLFWwindow* window;
+  if (renderer_init("Microdrag", GAME_WIDTH, GAME_HEIGHT, 0, &window) < 0) {
+    printf("Error initializing renderer!\n");
+    return -1;
+  }
+
+  // Init audio
+  if (audio_init() < 0) {
+    printf("Error initializing audio\n");
+    return -1;
+  }
+
+  // init game
+  game_init(window);
+
+  // render & update
+  while (!renderer_should_close()) {
+    game_update();
+    game_render();
+  }
+
+  // cleanup
+  game_free();
+
+  return 0;
+}
