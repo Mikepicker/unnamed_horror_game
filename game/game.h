@@ -43,7 +43,7 @@ cube cubes[MAX_CUBES];
 object* select_cube;
 
 // where to place next cube
-static vec3 place_target;
+vec3 place_target;
 
 // materials
 static material mat_stone;

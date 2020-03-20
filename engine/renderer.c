@@ -104,7 +104,7 @@ int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow
   // init vars
   renderer_render_aabb = 0;
   renderer_shadow_near = 1.0f;
-  renderer_shadow_far = 10.0f;
+  renderer_shadow_far = 100.0f;
   renderer_debug_vao = 0;
   renderer_debug_enabled = 0;
   renderer_shadow_bias = 0.22f;
@@ -386,9 +386,13 @@ void renderer_render_objects(object* objects[], int objects_length, light* light
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   mat4x4 light_proj, light_view, light_space;
-  mat4x4_ortho(light_proj, -40.0f, 40.0f, -40.0f, 40.0f, renderer_shadow_near, renderer_shadow_far);
+  float sz = 20.0f;
+  mat4x4_ortho(light_proj, -sz, sz, -sz, sz, renderer_shadow_near, renderer_shadow_far);
   vec3 up = { 0.0f, 0.0f, 1.0f };
   vec3 dir = { 0.0f, 0.0f, 0.0f };
+  dir[0] = camera->pos[0];
+  dir[1] = 0.0f;
+  dir[2] = camera->pos[2];
   mat4x4_look_at(light_view, lights[0]->position, dir, up);
   mat4x4_mul(light_space, light_proj, light_view);
 

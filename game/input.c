@@ -9,7 +9,7 @@ int get_dead_cube_index() {
   return -1;
 }
 
-void place_tile() {
+void place_cube() {
   int i = get_dead_cube_index();
 
   if (i >= 0) {
@@ -48,7 +48,10 @@ void input_key_callback(GLFWwindow* window, int key, int scancode, int action, i
     glfwSetWindowShouldClose(window, GLFW_TRUE);
 
   if (key == GLFW_KEY_H && action == GLFW_PRESS)
-    place_tile();
+    place_cube();
+
+  if (key == GLFW_KEY_J && action == GLFW_PRESS)
+    renderer_debug_enabled = renderer_debug_enabled == 0 ? 1 : 0;
   
   // capture mouse
   if (action == GLFW_RELEASE) {

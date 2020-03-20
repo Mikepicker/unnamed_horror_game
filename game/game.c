@@ -110,7 +110,10 @@ void game_update() {
 
   input_update();
 
-  lights[0].position[0] = 4 + sinf(current_frame);
+  // lights[0].position[1] = 10 + sinf(current_frame) * 5;
+  lights[0].position[0] = game_camera.pos[0];
+  lights[0].position[1] = game_camera.pos[1] + 2.0f;
+  lights[0].position[2] = game_camera.pos[2];
   // cube->position[1] = 4 + sinf(current_frame);
   // microdrag.cars[0].obj->position[1] = 1.0f + sinf(2.0f * current_frame);
   // microdrag.lights[0].position[0] =  24 * sinf(0.5f * current_frame);
@@ -138,7 +141,7 @@ void game_render() {
   }
 
   // select cube
-  vec3_scale(place_target, game_camera.front, 2);
+  vec3_scale(place_target, game_camera.front, 4);
   vec3_add(place_target, place_target, game_camera.pos);
   place_target[0] = round(place_target[0]);
   place_target[1] = round(place_target[1]);

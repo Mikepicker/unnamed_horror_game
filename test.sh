@@ -1,1 +1,1 @@
-make && cd game && ./microdrag
+make && cd game && ./craft
