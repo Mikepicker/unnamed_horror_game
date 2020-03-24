@@ -21,6 +21,10 @@ static inline float to_radians(float degrees)
   return degrees * (M_PI / 180.0);
 }
 
+static inline float lerp(float p1, float p2, float amount) {
+  return (p2 * amount) + (p1 * (1 - amount));
+}
+
 #define LINMATH_H_DEFINE_VEC(n) \
 typedef float vec##n[n]; \
 static inline void vec##n##_add(vec##n r, vec##n const a, vec##n const b) \
@@ -74,6 +78,11 @@ static inline float vec##n##_dot(vec##n const a, vec##n const b) \
   for(int i=0; i<n; ++i) \
     v += a[i] * b[i]; \
   return v; \
+} \
+static inline void vec##n##_lerp(vec##n r, vec##n const a, vec##n const b, float amount) \
+{ \
+  for(int i=0; i<n; ++i) \
+    r[i] = lerp(a[i], b[i], amount); \
 } \
 
 LINMATH_H_DEFINE_VEC(2)
@@ -583,6 +592,7 @@ static inline void mat4x4o_mul_quat(mat4x4 R, mat4x4 M, quat q)
 	R[3][0] = R[3][1] = R[3][2] = 0.f;
 	R[3][3] = 1.f;
 }
+
 static inline void quat_from_mat4x4(quat q, mat4x4 M)
 {
 	float r=0.f;
@@ -611,6 +621,45 @@ static inline void quat_from_mat4x4(quat q, mat4x4 M)
 	q[1] = (M[p[0]][p[1]] - M[p[1]][p[0]])/(2.f*r);
 	q[2] = (M[p[2]][p[0]] - M[p[0]][p[2]])/(2.f*r);
 	q[3] = (M[p[2]][p[1]] - M[p[1]][p[2]])/(2.f*r);
+}
+
+static inline void quat_slerp(quat r, quat from, quat to, float amount) {
+  float scale0, scale1;
+  float	afto1[4];
+  float cosom = from[0] * to[0] + from[1] * to[1] + from[2] * to[2] + from[3] * to[3];
+  
+  if ( cosom < 0.0f ) {
+    cosom = -cosom; 
+    afto1[0] = -to[0];
+    afto1[1] = -to[1];
+    afto1[2] = -to[2];
+    afto1[3] = -to[3];
+  } else {
+    afto1[0] = to[0];
+    afto1[1] = to[1];
+    afto1[2] = to[2];
+    afto1[3] = to[3];
+  }
+  
+  const float QUATERNION_DELTA_COS_MIN = 0.01f;
+
+  if ( (1.0f - cosom) > QUATERNION_DELTA_COS_MIN ) {
+    /* This is a standard case (slerp). */
+    float omega = acosf(cosom);
+    float sinom = sinf(omega);
+    scale0 = sinf((1.0f - amount) * omega) / sinom;
+    scale1 = sinf(amount * omega) / sinom;
+  } else {
+    /* "from" and "to" quaternions are very close */
+    /*  so we can do a linear interpolation.      */
+    scale0 = 1.0f - amount;
+    scale1 = amount;
+  }
+
+  r[0] = (scale0 * from[0]) + (scale1 * afto1[0]);
+  r[1] = (scale0 * from[1]) + (scale1 * afto1[1]);
+  r[2] = (scale0 * from[2]) + (scale1 * afto1[2]);
+  r[3] = (scale0 * from[3]) + (scale1 * afto1[3]);
 }
 
 #endif
