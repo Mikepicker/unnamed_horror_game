@@ -231,11 +231,11 @@ void renderer_free_object(object* o) {
 
 static void render_aabb(object* o) {
   aabb* aabb = &o->box;
-  mat4x4 m;
-  mat4x4_identity(m);
+  mat4 m;
+  mat4_identity(m);
 
   vec3 size = {aabb->max_x - aabb->min_x, aabb->max_y - aabb->min_y, aabb->max_z - aabb->min_z};
-  mat4x4_scale_aniso(m, m, size[0], size[1], size[2]);
+  mat4_scale_aniso(m, m, size[0], size[1], size[2]);
 
   vec3 center = {
     (aabb->min_x + aabb->max_x) / 2,
@@ -243,15 +243,15 @@ static void render_aabb(object* o) {
     (aabb->min_z + aabb->max_z) / 2
   };
 
-  mat4x4 translation;
+  mat4 translation;
   vec3 pos = {
     (o->position[0] * o->scale + center[0]) / size[0],
     (o->position[1] * o->scale + center[1]) / size[1],
     (o->position[2] * o->scale + center[2]) / size[2]
   };
 
-  mat4x4_translate(translation, pos[0], pos[1], pos[2]);
-  mat4x4_mul(m, m, translation);
+  mat4_translate(translation, pos[0], pos[1], pos[2]);
+  mat4_mul(m, m, translation);
 
   glUniformMatrix4fv(glGetUniformLocation(renderer_main_shader, "M"), 1, GL_FALSE, (const GLfloat*) m);
 
@@ -266,29 +266,29 @@ static void render_aabb(object* o) {
 static void render_objects(object *objects[], int objects_length, GLuint shader_id) {
   for (int i = 0; i < objects_length; i++) {
     object* o = objects[i];
-    mat4x4 m;
+    mat4 m;
 
     // scale
-    mat4x4_identity(m);
-    mat4x4_scale(m, m, o->scale);
+    mat4_identity(m);
+    mat4_scale(m, m, o->scale);
 
     // translate
-    mat4x4 translation;
-    mat4x4_translate(translation, o->position[0], o->position[1], o->position[2]);
-    mat4x4_mul(m, m, translation);
+    mat4 translation;
+    mat4_translate(translation, o->position[0], o->position[1], o->position[2]);
+    mat4_mul(m, m, translation);
 
     // compute rotation matrix from quaternion
-    mat4x4 mat_rot;
-    mat4x4_from_quat(mat_rot, o->rotation);
+    mat4 mat_rot;
+    mat4_from_quat(mat_rot, o->rotation);
 
     // rotate around center
-    mat4x4 t1;
-    mat4x4_translate(t1, o->center[0], o->center[1], o->center[2]);
-    mat4x4_mul(m, m, t1);
-    mat4x4_mul(m, m, mat_rot);
-    mat4x4 t2;
-    mat4x4_translate(t2, -o->center[0], -o->center[1], -o->center[2]);
-    mat4x4_mul(m, m, t2);
+    mat4 t1;
+    mat4_translate(t1, o->center[0], o->center[1], o->center[2]);
+    mat4_mul(m, m, t1);
+    mat4_mul(m, m, mat_rot);
+    mat4 t2;
+    mat4_translate(t2, -o->center[0], -o->center[1], -o->center[2]);
+    mat4_mul(m, m, t2);
 
     glUniformMatrix4fv(glGetUniformLocation(shader_id, "M"), 1, GL_FALSE, (const GLfloat*) m);
     
@@ -385,16 +385,16 @@ void renderer_render_objects(object* objects[], int objects_length, light* light
   glClearColor(183.0f / 255.0f, 220.0f / 255.0f, 244.0f / 255.0f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  mat4x4 light_proj, light_view, light_space;
+  mat4 light_proj, light_view, light_space;
   float sz = 20.0f;
-  mat4x4_ortho(light_proj, -sz, sz, -sz, sz, renderer_shadow_near, renderer_shadow_far);
+  mat4_ortho(light_proj, -sz, sz, -sz, sz, renderer_shadow_near, renderer_shadow_far);
   vec3 up = { 0.0f, 0.0f, 1.0f };
   vec3 dir = { 0.0f, 0.0f, 0.0f };
   dir[0] = camera->pos[0];
   dir[1] = 0.0f;
   dir[2] = camera->pos[2];
-  mat4x4_look_at(light_view, lights[0]->position, dir, up);
-  mat4x4_mul(light_space, light_proj, light_view);
+  mat4_look_at(light_view, lights[0]->position, dir, up);
+  mat4_mul(light_space, light_proj, light_view);
 
   // render scene from light's point of view
   glUseProgram(renderer_shadow_shader);
@@ -446,11 +446,11 @@ void renderer_render_objects(object* objects[], int objects_length, light* light
   }
 
   // compute mvp matrix
-  mat4x4 v, p;
+  mat4 v, p;
   vec3 camera_dir;
   vec3_add(camera_dir, camera->pos, camera->front);
-  mat4x4_look_at(v, camera->pos, camera_dir, camera->up);
-  mat4x4_perspective(p, to_radians(45.0f), ratio, 0.1f, 100.0f);
+  mat4_look_at(v, camera->pos, camera_dir, camera->up);
+  mat4_perspective(p, to_radians(45.0f), ratio, 0.1f, 100.0f);
 
   // pass mvp to shader
   glUniformMatrix4fv(glGetUniformLocation(renderer_main_shader, "V"), 1, GL_FALSE, (const GLfloat*) v);

@@ -2,11 +2,11 @@
 
 static vertex scale_vertex(float scale, vertex v) {
   vec4 v4 = { v.x, v.y, v.z, 1.0f };
-  mat4x4 m;
-  mat4x4_identity(m);
-  mat4x4_scale(m, m, scale);
+  mat4 m;
+  mat4_identity(m);
+  mat4_scale(m, m, scale);
   vec4 scaled_v4;
-  mat4x4_mul_vec4(scaled_v4, m, v4);
+  mat4_mul_vec4(scaled_v4, m, v4);
   vertex res = { .x = scaled_v4[0], .y = scaled_v4[1], .z = scaled_v4[2] };
   return res;
 }

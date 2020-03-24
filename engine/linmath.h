@@ -126,59 +126,59 @@ static inline void vec4_reflect(vec4 r, vec4 v, vec4 n)
 		r[i] = v[i] - p*n[i];
 }
 
-typedef vec4 mat4x4[4];
-static inline void mat4x4_identity(mat4x4 M)
+typedef vec4 mat4[4];
+static inline void mat4_identity(mat4 M)
 {
 	int i, j;
 	for(i=0; i<4; ++i)
 		for(j=0; j<4; ++j)
 			M[i][j] = i==j ? 1.f : 0.f;
 }
-static inline void mat4x4_dup(mat4x4 M, mat4x4 N)
+static inline void mat4_dup(mat4 M, mat4 N)
 {
 	int i, j;
 	for(i=0; i<4; ++i)
 		for(j=0; j<4; ++j)
 			M[i][j] = N[i][j];
 }
-static inline void mat4x4_row(vec4 r, mat4x4 M, int i)
+static inline void mat4_row(vec4 r, mat4 M, int i)
 {
 	int k;
 	for(k=0; k<4; ++k)
 		r[k] = M[k][i];
 }
-static inline void mat4x4_col(vec4 r, mat4x4 M, int i)
+static inline void mat4_col(vec4 r, mat4 M, int i)
 {
 	int k;
 	for(k=0; k<4; ++k)
 		r[k] = M[i][k];
 }
-static inline void mat4x4_transpose(mat4x4 M, mat4x4 N)
+static inline void mat4_transpose(mat4 M, mat4 N)
 {
 	int i, j;
 	for(j=0; j<4; ++j)
 		for(i=0; i<4; ++i)
 			M[i][j] = N[j][i];
 }
-static inline void mat4x4_add(mat4x4 M, mat4x4 a, mat4x4 b)
+static inline void mat4_add(mat4 M, mat4 a, mat4 b)
 {
 	int i;
 	for(i=0; i<4; ++i)
 		vec4_add(M[i], a[i], b[i]);
 }
-static inline void mat4x4_sub(mat4x4 M, mat4x4 a, mat4x4 b)
+static inline void mat4_sub(mat4 M, mat4 a, mat4 b)
 {
 	int i;
 	for(i=0; i<4; ++i)
 		vec4_sub(M[i], a[i], b[i]);
 }
-static inline void mat4x4_scale(mat4x4 M, mat4x4 a, float k)
+static inline void mat4_scale(mat4 M, mat4 a, float k)
 {
 	int i;
 	for(i=0; i<4; ++i)
 		vec4_scale(M[i], a[i], k);
 }
-static inline void mat4x4_scale_aniso(mat4x4 M, mat4x4 a, float x, float y, float z)
+static inline void mat4_scale_aniso(mat4 M, mat4 a, float x, float y, float z)
 {
 	int i;
 	vec4_scale(M[0], a[0], x);
@@ -188,18 +188,18 @@ static inline void mat4x4_scale_aniso(mat4x4 M, mat4x4 a, float x, float y, floa
 		M[3][i] = a[3][i];
 	}
 }
-static inline void mat4x4_mul(mat4x4 M, mat4x4 a, mat4x4 b)
+static inline void mat4_mul(mat4 M, mat4 a, mat4 b)
 {
-	mat4x4 temp;
+	mat4 temp;
 	int k, r, c;
 	for(c=0; c<4; ++c) for(r=0; r<4; ++r) {
 		temp[c][r] = 0.f;
 		for(k=0; k<4; ++k)
 			temp[c][r] += a[k][r] * b[c][k];
 	}
-	mat4x4_dup(M, temp);
+	mat4_dup(M, temp);
 }
-static inline void mat4x4_mul_vec4(vec4 r, mat4x4 M, vec4 v)
+static inline void mat4_mul_vec4(vec4 r, mat4 M, vec4 v)
 {
 	int i, j;
 	for(j=0; j<4; ++j) {
@@ -208,40 +208,40 @@ static inline void mat4x4_mul_vec4(vec4 r, mat4x4 M, vec4 v)
 			r[j] += M[i][j] * v[i];
 	}
 }
-static inline void mat4x4_translate(mat4x4 T, float x, float y, float z)
+static inline void mat4_translate(mat4 T, float x, float y, float z)
 {
-	mat4x4_identity(T);
+	mat4_identity(T);
 	T[3][0] = x;
 	T[3][1] = y;
 	T[3][2] = z;
 }
-static inline void mat4x4_translate_in_place(mat4x4 M, float x, float y, float z)
+static inline void mat4_translate_in_place(mat4 M, float x, float y, float z)
 {
 	vec4 t = {x, y, z, 0};
 	vec4 r;
 	int i;
 	for (i = 0; i < 4; ++i) {
-		mat4x4_row(r, M, i);
+		mat4_row(r, M, i);
 		M[3][i] += vec4_mul_inner(r, t);
 	}
 }
-static inline void mat4x4_from_vec3_mul_outer(mat4x4 M, vec3 a, vec3 b)
+static inline void mat4_from_vec3_mul_outer(mat4 M, vec3 a, vec3 b)
 {
 	int i, j;
 	for(i=0; i<4; ++i) for(j=0; j<4; ++j)
 		M[i][j] = i<3 && j<3 ? a[i] * b[j] : 0.f;
 }
-static inline void mat4x4_rotate(mat4x4 R, mat4x4 M, float x, float y, float z, float angle)
+static inline void mat4_rotate(mat4 R, mat4 M, float x, float y, float z, float angle)
 {
 	float s = sinf(angle);
 	float c = cosf(angle);
 	vec3 u = {x, y, z};
 
 	if(vec3_len(u) > 1e-4) {
-		mat4x4 T, C, S = {{0}};
+		mat4 T, C, S = {{0}};
 
 		vec3_norm(u, u);
-		mat4x4_from_vec3_mul_outer(T, u, u);
+		mat4_from_vec3_mul_outer(T, u, u);
 
 		S[1][2] =  u[0];
 		S[2][1] = -u[0];
@@ -250,59 +250,59 @@ static inline void mat4x4_rotate(mat4x4 R, mat4x4 M, float x, float y, float z, 
 		S[0][1] =  u[2];
 		S[1][0] = -u[2];
 
-		mat4x4_scale(S, S, s);
+		mat4_scale(S, S, s);
 
-		mat4x4_identity(C);
-		mat4x4_sub(C, C, T);
+		mat4_identity(C);
+		mat4_sub(C, C, T);
 
-		mat4x4_scale(C, C, c);
+		mat4_scale(C, C, c);
 
-		mat4x4_add(T, T, C);
-		mat4x4_add(T, T, S);
+		mat4_add(T, T, C);
+		mat4_add(T, T, S);
 
 		T[3][3] = 1.;
-		mat4x4_mul(R, M, T);
+		mat4_mul(R, M, T);
 	} else {
-		mat4x4_dup(R, M);
+		mat4_dup(R, M);
 	}
 }
-static inline void mat4x4_rotate_X(mat4x4 Q, mat4x4 M, float angle)
+static inline void mat4_rotate_X(mat4 Q, mat4 M, float angle)
 {
 	float s = sinf(angle);
 	float c = cosf(angle);
-	mat4x4 R = {
+	mat4 R = {
 		{1.f, 0.f, 0.f, 0.f},
 		{0.f,   c,   s, 0.f},
 		{0.f,  -s,   c, 0.f},
 		{0.f, 0.f, 0.f, 1.f}
 	};
-	mat4x4_mul(Q, M, R);
+	mat4_mul(Q, M, R);
 }
-static inline void mat4x4_rotate_Y(mat4x4 Q, mat4x4 M, float angle)
+static inline void mat4_rotate_Y(mat4 Q, mat4 M, float angle)
 {
 	float s = sinf(angle);
 	float c = cosf(angle);
-	mat4x4 R = {
+	mat4 R = {
 		{   c, 0.f,   s, 0.f},
 		{ 0.f, 1.f, 0.f, 0.f},
 		{  -s, 0.f,   c, 0.f},
 		{ 0.f, 0.f, 0.f, 1.f}
 	};
-	mat4x4_mul(Q, M, R);
+	mat4_mul(Q, M, R);
 }
-static inline void mat4x4_rotate_Z(mat4x4 Q, mat4x4 M, float angle)
+static inline void mat4_rotate_Z(mat4 Q, mat4 M, float angle)
 {
 	float s = sinf(angle);
 	float c = cosf(angle);
-	mat4x4 R = {
+	mat4 R = {
 		{   c,   s, 0.f, 0.f},
 		{  -s,   c, 0.f, 0.f},
 		{ 0.f, 0.f, 1.f, 0.f},
 		{ 0.f, 0.f, 0.f, 1.f}
 	};
-	mat4x4_mul(Q, M, R);
+	mat4_mul(Q, M, R);
 }
-static inline void mat4x4_invert(mat4x4 T, mat4x4 M)
+static inline void mat4_invert(mat4 T, mat4 M)
 {
 	float idet;
 	float s[6];
@@ -344,12 +344,12 @@ static inline void mat4x4_invert(mat4x4 T, mat4x4 M)
 	T[3][2] = (-M[3][0] * s[3] + M[3][1] * s[1] - M[3][2] * s[0]) * idet;
 	T[3][3] = ( M[2][0] * s[3] - M[2][1] * s[1] + M[2][2] * s[0]) * idet;
 }
-static inline void mat4x4_orthonormalize(mat4x4 R, mat4x4 M)
+static inline void mat4_orthonormalize(mat4 R, mat4 M)
 {
 	float s = 1.;
 	vec3 h;
 
-	mat4x4_dup(R, M);
+	mat4_dup(R, M);
 	vec3_norm(R[2], R[2]);
 
 	s = vec3_mul_inner(R[1], R[2]);
@@ -368,7 +368,7 @@ static inline void mat4x4_orthonormalize(mat4x4 R, mat4x4 M)
 	vec3_norm(R[0], R[0]);
 }
 
-static inline void mat4x4_frustum(mat4x4 M, float l, float r, float b, float t, float n, float f)
+static inline void mat4_frustum(mat4 M, float l, float r, float b, float t, float n, float f)
 {
 	M[0][0] = 2.f*n/(r-l);
 	M[0][1] = M[0][2] = M[0][3] = 0.f;
@@ -384,7 +384,7 @@ static inline void mat4x4_frustum(mat4x4 M, float l, float r, float b, float t, 
 	M[3][2] = -2.f*(f*n)/(f-n);
 	M[3][0] = M[3][1] = M[3][3] = 0.f;
 }
-static inline void mat4x4_ortho(mat4x4 M, float l, float r, float b, float t, float n, float f)
+static inline void mat4_ortho(mat4 M, float l, float r, float b, float t, float n, float f)
 {
 	M[0][0] = 2.f/(r-l);
 	M[0][1] = M[0][2] = M[0][3] = 0.f;
@@ -400,7 +400,7 @@ static inline void mat4x4_ortho(mat4x4 M, float l, float r, float b, float t, fl
 	M[3][2] = -(f+n)/(f-n);
 	M[3][3] = 1.f;
 }
-static inline void mat4x4_perspective(mat4x4 m, float y_fov, float aspect, float n, float f)
+static inline void mat4_perspective(mat4 m, float y_fov, float aspect, float n, float f)
 {
 	/* NOTE: Degrees are an unhandy unit to work with.
 	 * linmath.h uses radians for everything! */
@@ -426,7 +426,7 @@ static inline void mat4x4_perspective(mat4x4 m, float y_fov, float aspect, float
 	m[3][2] = -((2.f * f * n) / (f - n));
 	m[3][3] = 0.f;
 }
-static inline void mat4x4_look_at(mat4x4 m, vec3 eye, vec3 center, vec3 up)
+static inline void mat4_look_at(mat4 m, vec3 eye, vec3 center, vec3 up)
 {
 	/* Adapted from Android's OpenGL Matrix.java.                        */
 	/* See the OpenGL GLUT documentation for gluLookAt for a description */
@@ -466,7 +466,7 @@ static inline void mat4x4_look_at(mat4x4 m, vec3 eye, vec3 center, vec3 up)
 	m[3][2] =  0.f;
 	m[3][3] =  1.f;
 
-	mat4x4_translate_in_place(m, -eye[0], -eye[1], -eye[2]);
+	mat4_translate_in_place(m, -eye[0], -eye[1], -eye[2]);
 }
 
 typedef float quat[4];
@@ -551,7 +551,7 @@ v' = v + q.w * t + cross(q.xyz, t)
 	vec3_add(r, v, t);
 	vec3_add(r, r, u);
 }
-static inline void mat4x4_from_quat(mat4x4 M, const quat q)
+static inline void mat4_from_quat(mat4 M, const quat q)
 {
 	float a = q[3];
 	float b = q[0];
@@ -581,7 +581,7 @@ static inline void mat4x4_from_quat(mat4x4 M, const quat q)
 	M[3][3] = 1.f;
 }
 
-static inline void mat4x4o_mul_quat(mat4x4 R, mat4x4 M, quat q)
+static inline void mat4o_mul_quat(mat4 R, mat4 M, quat q)
 {
 /*  XXX: The way this is written only works for othogonal matrices. */
 /* TODO: Take care of non-orthogonal case. */
@@ -593,7 +593,7 @@ static inline void mat4x4o_mul_quat(mat4x4 R, mat4x4 M, quat q)
 	R[3][3] = 1.f;
 }
 
-static inline void quat_from_mat4x4(quat q, mat4x4 M)
+static inline void quat_from_mat4(quat q, mat4 M)
 {
 	float r=0.f;
 	int i;
