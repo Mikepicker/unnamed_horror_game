@@ -1,6 +1,17 @@
 import xml.etree.ElementTree as ET
 
+OUTPUT_NAME = 'character'
+
 root = ET.parse('Walking.dae').getroot()
+
+# library nodes
+library_geometries = root.find('{*}library_geometries')
+library_images = root.find('{*}library_images')
+library_materials = root.find('{*}library_materials')
+library_effects = root.find('{*}library_effects')
+library_vs = root.find('{*}library_visual_scenes')
+library_controllers = root.find('{*}library_controllers')
+library_anim = root.find('{*}library_animations')
 
 # ----------------- UTILS ----------------- #
 def safe_split(l):
@@ -8,21 +19,7 @@ def safe_split(l):
     res = [x for x in res if x] # clean array from empty strings
     return res
 
-# newmtl Material
-# Ns 323.999994
-# Ka 1.000000 1.000000 1.000000
-# Kd 0.800000 0.800000 0.800000
-# Ks 0.500000 0.500000 0.500000
-# Ke 0.000000 0.000000 0.000000
-# Ni 1.450000
-# d 1.000000
-# illum 2
-
 # ----------------- MATERIALS DATA ----------------- #
-library_images = root.find('{*}library_images')
-library_materials = root.find('{*}library_materials')
-library_effects = root.find('{*}library_effects')
-
 def extract_materials():
     materials = []
 
@@ -67,9 +64,6 @@ def extract_materials():
 
 # ----------------- GEOMETRY DATA ----------------- #
 # vertices, normals, uvs, materials
-
-library_geometries = root.find('{*}library_geometries')
-
 def extract_positions(mesh_node, poly_node):
     data = []
 
@@ -152,7 +146,8 @@ def extract_geometry():
         faces = extract_faces(mesh_node, poly_node)
 
         # material
-        material_id = poly_node.attrib['material']
+        material_symbol = poly_node.attrib['material']
+        material_id = library_vs.find('.//{*}instance_material').attrib['target'][1:]
 
         geometry.append({ "positions": positions, "normals": normals, "uvs": uvs, "faces": faces, "material_id": material_id })
 
@@ -160,9 +155,6 @@ def extract_geometry():
 
 # ----------------- SKIN DATA ----------------- #
 # joints list and vertex weights
-
-library_controllers = root.find('{*}library_controllers')
-
 def shrink_vertex_data(vertex_data):
     vertex_data = sorted(vertex_data, key=lambda k: k['weight'], reverse=True)
     shrinked = vertex_data[:3]
@@ -217,8 +209,6 @@ def extract_vertex_weights():
 # ----------------- SKELETON DATA ----------------- #
 # joints hierarchy and transforms
 
-library_vs = root.find('{*}library_visual_scenes')
-
 def extract_joint_data(joints, joint_node):
     joint_name = joint_node.attrib['id']
     
@@ -252,9 +242,6 @@ def extract_skeleton(joints):
 
 # ----------------- ANIMATION DATA ----------------- #
 # keyframes list, joint transforms for each keyframes, total duration
-
-library_anim = root.find('{*}library_animations')
-
 def extract_animations(joints):
     keyframes = []
     transforms = []
@@ -279,16 +266,13 @@ def extract_animations(joints):
 
 # ----------------- EXPORT OBJ ----------------- #
 def export_obj(geometry, materials):
-    obj_out = open('output.obj', 'w')
+    obj_out = open(OUTPUT_NAME + '.obj', 'w')
 
     # output mtl reference
     if len(materials) > 0:
-        obj_out.write('mtllib output.mtl\n')
+        obj_out.write('mtllib ' + OUTPUT_NAME + '.mtl\n')
     
     for group in geometry:
-        if group['material_id'] != None:
-            obj_out.write('usemtl ' + group['material_id'] + '\n')
-
         # output positions
         for p in group['positions']:
             obj_out.write('v ' + str(p['x']) + ' ' + str(p['y']) + ' ' + str(p['z']) + '\n') 
@@ -300,6 +284,10 @@ def export_obj(geometry, materials):
         # output texcoords
         for u in group['uvs']:
             obj_out.write('vt ' + str(u['u']) + ' ' + str(u['v']) + '\n') 
+
+        # output material
+        if group['material_id'] != None:
+            obj_out.write('usemtl ' + group['material_id'] + '\n')
 
         # output faces
         faces = group['faces']
@@ -315,7 +303,7 @@ def export_obj(geometry, materials):
     obj_out.close()
 
     # output mtl
-    mtl_out = open('output.mtl', 'w')
+    mtl_out = open(OUTPUT_NAME + '.mtl', 'w')
 
     conv_map = {
         'emission': 'Ke',
@@ -345,7 +333,6 @@ def export_obj(geometry, materials):
     mtl_out.close()
 
 # ----------------- MAIN ----------------- #
-
 geometry = extract_geometry()
 materials = extract_materials()
 export_obj(geometry, materials)
