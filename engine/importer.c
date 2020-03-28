@@ -1,7 +1,7 @@
 #include "importer.h"
 
 const int INIT_SIZE = 256 * 10000;
-const char* ASSETS_PATH = "assets/racing/";
+const char* ASSETS_PATH = "assets/character/";
 
 static vec3* temp_vertices;
 static vec2* temp_uvs;
@@ -54,6 +54,13 @@ static void import_mtl(const char* filename) {
     // specular
     else if (strstr(line, "Ks ") != NULL) {
       sscanf(line, "Ks %f %f %f\n", &current_mat->specular[0], &current_mat->specular[1], &current_mat->specular[2]);
+    }
+    // normal map path
+    else if (strstr(line, "map_Kn ") != NULL) {
+      strncpy(current_mat->normal_map_path, ASSETS_PATH, 256);
+      char tex_path[256];
+      sscanf(line, "map_Kn %s", tex_path);
+      strncat(current_mat->normal_map_path, tex_path, strlen(tex_path));
     }
   }
 

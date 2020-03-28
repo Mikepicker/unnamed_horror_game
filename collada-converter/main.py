@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as ET
 
-INPUT_NAME = 'chiostro.dae'
+INPUT_NAME = 'Walking.dae'
 OUTPUT_NAME = 'character'
 
 # strip namespace from tags
@@ -75,13 +75,14 @@ def extract_technique(effect_node, newparams, textures):
         else:
             technique.append({ 'id': p_tag, 'value': float_node.text, 'type': 'float' })
 
+    # get normal maps
+    normal_node = effect_node.find('.//displacement')
+    if normal_node != None:
+        texture_node = normal_node.find('texture')
+        texture_id = newparams[texture_node.attrib['texture']]
+        technique.append({ 'id': 'normal', 'value': textures[texture_id] , 'type': 'texture' })
+
     return technique
-
-def extract_material(effects):
-    material = { 'id': 0, 'params': [] }
-
-    # get ids
-    material['id'] = e_node.attrib['name']
 
 def extract_materials():
     # get all textures
@@ -390,7 +391,8 @@ def export_obj(geometry, materials):
         'diffuse': 'Kd',
         'specular': 'Ks',
         'shininess': 'Ns',
-        'transparency': 'd'
+        'transparency': 'd',
+        'normal': 'Kn'
     }
 
     skip_list = ['reflectivity', 'reflective', 'transparent']
