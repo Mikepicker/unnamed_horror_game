@@ -68,7 +68,6 @@ def extract_technique(effect_node, newparams, textures):
 
         if texture_node != None:
             texture_id = newparams[texture_node.attrib['texture']]
-            print(newparams)
             technique.append({ 'id': p_tag, 'value': textures[texture_id] , 'type': 'texture' })
         elif color_node != None:
             rgba = safe_split(color_node.text)
@@ -344,14 +343,21 @@ def export_obj(geometry, materials):
         for p in group['positions']:
             obj_out.write('v ' + str(p['x']) + ' ' + str(p['y']) + ' ' + str(p['z']) + '\n') 
 
+    for group in geometry:
         # output normals
         for n in group['normals']:
             obj_out.write('vn ' + str(n['x']) + ' ' + str(n['y']) + ' ' + str(n['z']) + '\n') 
 
+    for group in geometry:
         # output texcoords
         for u in group['uvs']:
             obj_out.write('vt ' + str(u['u']) + ' ' + str(u['v']) + '\n') 
 
+    geom_index = 0
+    p_offset = 0 # position offset 
+    u_offset = 0 # texcoord offset
+    n_offset = 0 # normal offset
+    for group in geometry:
         # output material
         if has_materials and group['material_id'] != None:
             obj_out.write('usemtl ' + group['material_id'] + '\n')
@@ -361,11 +367,17 @@ def export_obj(geometry, materials):
 
         for i in range(int(len(faces) / 3)):
             line = 'f'
-            line += ' ' + str(int(faces[i * 3 + 0]['p_index']) + 1) + '/' + str(int(faces[i * 3 + 0]['u_index']) + 1) + '/' + str(int(faces[i * 3 + 0]['n_index']) + 1)
-            line += ' ' + str(int(faces[i * 3 + 1]['p_index']) + 1) + '/' + str(int(faces[i * 3 + 1]['u_index']) + 1) + '/' + str(int(faces[i * 3 + 1]['n_index']) + 1)
-            line += ' ' + str(int(faces[i * 3 + 2]['p_index']) + 1) + '/' + str(int(faces[i * 3 + 2]['u_index']) + 1) + '/' + str(int(faces[i * 3 + 2]['n_index']) + 1)
+            line += ' ' + str(int(faces[i * 3 + 0]['p_index']) + 1 + p_offset) + '/' + str(int(faces[i * 3 + 0]['u_index']) + 1 + u_offset) + '/' + str(int(faces[i * 3 + 0]['n_index']) + 1 + n_offset)
+            line += ' ' + str(int(faces[i * 3 + 1]['p_index']) + 1 + p_offset) + '/' + str(int(faces[i * 3 + 1]['u_index']) + 1 + u_offset) + '/' + str(int(faces[i * 3 + 1]['n_index']) + 1 + n_offset)
+            line += ' ' + str(int(faces[i * 3 + 2]['p_index']) + 1 + p_offset) + '/' + str(int(faces[i * 3 + 2]['u_index']) + 1 + u_offset) + '/' + str(int(faces[i * 3 + 2]['n_index']) + 1 + n_offset)
             line += '\n'
             obj_out.write(line)
+
+        geom_index += 1
+        last_geom = geometry[geom_index - 1]
+        p_offset += len(last_geom['positions'])
+        u_offset += len(last_geom['uvs'])
+        n_offset += len(last_geom['normals'])
 
     obj_out.close()
 
@@ -384,7 +396,6 @@ def export_obj(geometry, materials):
     skip_list = ['reflectivity', 'reflective', 'transparent']
 
     for m in materials:
-        print(m)
         mtl_out.write('newmtl ' + str(m['id']) + '\n')
 
         for p in m['params']:
