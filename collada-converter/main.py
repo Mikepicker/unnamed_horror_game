@@ -1,3 +1,4 @@
+import copy
 import xml.etree.ElementTree as ET
 
 INPUT_NAME = 'Walking.dae'
@@ -210,14 +211,25 @@ def extract_geometry():
 # ----------------- SKIN DATA ----------------- #
 # joints list and vertex weights
 
-def shrink_vertex_data(vertex_data):
+def limit_vertex_data(vertex_data):
     vertex_data = sorted(vertex_data, key=lambda k: k['weight'], reverse=True)
-    shrinked = vertex_data[:3]
-    if (len(vertex_data) > 3):
-        remaining = 1 - sum(list(map(lambda x: float(x['weight']), shrinked)))
+    res = vertex_data
+    if len(vertex_data) > 3:
+        res = vertex_data[:3]
+        remaining = 1 - sum(list(map(lambda x: float(x['weight']), res)))
         for i in range(3):
-            shrinked[i]['weight'] = float(shrinked[i]['weight']) + (remaining / 3)
-    return shrinked
+            res[i]['weight'] = float(res[i]['weight']) + (remaining / 3)
+    elif len(vertex_data) == 1:
+        res.append(copy.deepcopy(res[0]))
+        res[1]['weight'] = 0
+        res.append(copy.deepcopy(res[0]))
+        res[2]['weight'] = 0
+    elif len(vertex_data) == 2:
+        res.append(copy.deepcopy(res[0]))
+        res[2]['weight'] = 0
+
+
+    return res
 
 def extract_joints():
     joints_data = []
@@ -248,14 +260,14 @@ def extract_vertex_weights():
     for count in counts:
         vertex_data = []
         for w in range(int(count)):
-            joint_id = weights_map[vertex_id]
+            joint_id = weights_map[pointer]
             pointer += 1
-            weight_id = weights_map[vertex_id]
+            weight_id = weights_map[pointer]
             pointer += 1
             vertex_data.append({ "vertex_id": vertex_id, "joint_id": joint_id, "weight": weights[int(weight_id)] })
 
         # get only first 3 weights
-        vertex_data = shrink_vertex_data(vertex_data)
+        vertex_data = limit_vertex_data(vertex_data)
 
         weights_data += vertex_data
 
@@ -310,18 +322,31 @@ def extract_animations(joints):
 
     animation_nodes = library_anim.findall('animation')
     for joint_node in animation_nodes:
-        joint_name = joint_node.find('channel') .attrib['target'].split('/')[0]
+        joint_name = joint_node.find('channel').attrib['target'].split('/')[0]
         joint_data_id = joint_node.find('sampler').find('.//input[@semantic="OUTPUT"]').attrib['source'][1:]
-        joint_transforms = safe_split(joint_node.find('.//float_array').text.replace('\n', ' '))
+        joint_data_float_array = joint_node.find('.//source[@id="' + joint_data_id + '"]').find('float_array')
+        joint_transforms = safe_split(joint_data_float_array.text)
 
         # transform matrix for each keyframe
         transforms_out = []
-        for i in range(int(len(joint_transforms) / 4)):
+        for i in range(int(len(joint_transforms) / 16)):
             t = []
             t.append(joint_transforms[i * 4 + 0])
             t.append(joint_transforms[i * 4 + 1])
             t.append(joint_transforms[i * 4 + 2])
             t.append(joint_transforms[i * 4 + 3])
+            t.append(joint_transforms[i * 4 + 4])
+            t.append(joint_transforms[i * 4 + 5])
+            t.append(joint_transforms[i * 4 + 6])
+            t.append(joint_transforms[i * 4 + 7])
+            t.append(joint_transforms[i * 4 + 8])
+            t.append(joint_transforms[i * 4 + 9])
+            t.append(joint_transforms[i * 4 + 10])
+            t.append(joint_transforms[i * 4 + 11])
+            t.append(joint_transforms[i * 4 + 12])
+            t.append(joint_transforms[i * 4 + 13])
+            t.append(joint_transforms[i * 4 + 14])
+            t.append(joint_transforms[i * 4 + 15])
             transforms_out.append(t)
 
         transforms.append({ "joint_id": joints.index(joint_name), "transforms": transforms_out })
@@ -427,7 +452,7 @@ def export_skl(weights, skeleton):
     write_skeleton(skeleton, skl_out)
 
     # vertex_id joint_id weight
-    skl_out.write('weights\n')
+    skl_out.write('weights ' + str(len(weights)) + '\n')
     for w in weights:
         skl_out.write(str(w['vertex_id']) + ' ' + str(w['joint_id']) + ' ' + str(w['weight']) + '\n')
 
@@ -448,6 +473,7 @@ def export_anm(animations):
     for a in animations['animations']:
         keyframe_id = 0
         for t in a['transforms']:
+            print(t)
             anm_out.write(str(keyframe_id) + ' ' + str(a['joint_id']) + ' ' + ' '.join(t) + '\n') 
             keyframe_id += 1
 
@@ -457,8 +483,6 @@ def export_anm(animations):
 geometry = extract_geometry()
 materials = extract_materials()
 export_obj(geometry, materials)
-
-exit()
 
 joints = extract_joints()
 

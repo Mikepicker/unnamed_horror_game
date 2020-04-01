@@ -57,6 +57,11 @@ static inline float vec##n##_len(vec##n const v) \
 { \
 	return (float) sqrt(vec##n##_mul_inner(v,v)); \
 } \
+static inline void vec##n##_zero(vec##n r) \
+{ \
+  for(int i=0; i<n; ++i) \
+    r[i] = 0; \
+} \
 static inline void vec##n##_copy(vec##n r, vec##n const v) \
 { \
   for(int i=0; i<n; ++i) \
@@ -134,7 +139,7 @@ static inline void mat4_identity(mat4 M)
 		for(j=0; j<4; ++j)
 			M[i][j] = i==j ? 1.f : 0.f;
 }
-static inline void mat4_dup(mat4 M, mat4 N)
+static inline void mat4_copy(mat4 M, mat4 N)
 {
 	int i, j;
 	for(i=0; i<4; ++i)
@@ -197,7 +202,7 @@ static inline void mat4_mul(mat4 M, mat4 a, mat4 b)
 		for(k=0; k<4; ++k)
 			temp[c][r] += a[k][r] * b[c][k];
 	}
-	mat4_dup(M, temp);
+	mat4_copy(M, temp);
 }
 static inline void mat4_mul_vec4(vec4 r, mat4 M, vec4 v)
 {
@@ -263,7 +268,7 @@ static inline void mat4_rotate(mat4 R, mat4 M, float x, float y, float z, float 
 		T[3][3] = 1.;
 		mat4_mul(R, M, T);
 	} else {
-		mat4_dup(R, M);
+		mat4_copy(R, M);
 	}
 }
 static inline void mat4_rotate_X(mat4 Q, mat4 M, float angle)
@@ -349,7 +354,7 @@ static inline void mat4_orthonormalize(mat4 R, mat4 M)
 	float s = 1.;
 	vec3 h;
 
-	mat4_dup(R, M);
+	mat4_copy(R, M);
 	vec3_norm(R[2], R[2]);
 
 	s = vec3_mul_inner(R[1], R[2]);
@@ -581,7 +586,7 @@ static inline void mat4_from_quat(mat4 M, const quat q)
 	M[3][3] = 1.f;
 }
 
-static inline void mat4o_mul_quat(mat4 R, mat4 M, quat q)
+static inline void mat4_mul_quat(mat4 R, mat4 M, quat q)
 {
 /*  XXX: The way this is written only works for othogonal matrices. */
 /* TODO: Take care of non-orthogonal case. */
@@ -595,32 +600,33 @@ static inline void mat4o_mul_quat(mat4 R, mat4 M, quat q)
 
 static inline void quat_from_mat4(quat q, mat4 M)
 {
-	float r=0.f;
-	int i;
+  float tr = M[0][0] + M[1][1] + M[2][2];
 
-	int perm[] = { 0, 1, 2, 0, 1 };
-	int *p = perm;
-
-	for(i = 0; i<3; i++) {
-		float m = M[i][i];
-		if( m < r )
-			continue;
-		m = r;
-		p = &perm[i];
-	}
-
-	r = (float) sqrt(1.f + M[p[0]][p[0]] - M[p[1]][p[1]] - M[p[2]][p[2]] );
-
-	if(r < 1e-6) {
-		q[0] = 1.f;
-		q[1] = q[2] = q[3] = 0.f;
-		return;
-	}
-
-	q[0] = r/2.f;
-	q[1] = (M[p[0]][p[1]] - M[p[1]][p[0]])/(2.f*r);
-	q[2] = (M[p[2]][p[0]] - M[p[0]][p[2]])/(2.f*r);
-	q[3] = (M[p[2]][p[1]] - M[p[1]][p[2]])/(2.f*r);
+  if (tr > 0) { 
+    float S = sqrt(tr+1.0) * 2; // S=4*qw 
+    q[3] = 0.25 * S;
+    q[0] = (M[1][2] - M[2][1]) / S;
+    q[1] = (M[2][0] - M[0][2]) / S; 
+    q[2] = (M[0][1] - M[1][0]) / S; 
+  } else if ((M[0][0] > M[1][1])&(M[0][0] > M[2][2])) { 
+    float S = sqrt(1.0 + M[0][0] - M[1][1] - M[2][2]) * 2; // S=4*qx 
+    q[3] = (M[1][2] - M[2][1]) / S;
+    q[0] = 0.25 * S;
+    q[1] = (M[1][0] + M[0][1]) / S; 
+    q[2] = (M[2][0] + M[0][2]) / S; 
+  } else if (M[1][1] > M[2][2]) { 
+    float S = sqrt(1.0 + M[1][1] - M[0][0] - M[2][2]) * 2; // S=4*qy
+    q[3] = (M[2][0] - M[0][2]) / S;
+    q[0] = (M[1][0] + M[0][1]) / S; 
+    q[1] = 0.25 * S;
+    q[2] = (M[2][1] + M[1][2]) / S; 
+  } else { 
+    float S = sqrt(1.0 + M[2][2] - M[0][0] - M[1][1]) * 2; // S=4*qz
+    q[3] = (M[0][1] - M[1][0]) / S;
+    q[0] = (M[2][0] + M[0][2]) / S;
+    q[1] = (M[2][1] + M[1][2]) / S;
+    q[2] = 0.25 * S;
+  }
 }
 
 static inline void quat_slerp(quat r, quat from, quat to, float amount) {

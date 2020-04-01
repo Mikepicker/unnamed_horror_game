@@ -1,5 +1,7 @@
 #include "game.h"
 
+object* character;
+
 void game_init(GLFWwindow* w) {
   game_camera.front[0] = 0.0f;
   game_camera.front[1] = 0.0f;
@@ -96,6 +98,15 @@ void game_init(GLFWwindow* w) {
   select_cube = malloc(sizeof(*sample_cube.o));
   memcpy(select_cube, sample_cube.o, sizeof(*sample_cube.o));
 
+  // load character
+  character = importer_load_obj("assets/character/character.obj");
+  character->scale = 0.01f;
+
+  vec3 z_axis = { 1, 0, 0 };
+  // quat_rotate(character->rotation, to_radians(-90), z_axis);
+  // character->position[1] += 50;
+  renderer_init_object(character);
+
   state = MENU;
 }
 
@@ -117,6 +128,10 @@ void game_update() {
   // cube->position[1] = 4 + sinf(current_frame);
   // microdrag.cars[0].obj->position[1] = 1.0f + sinf(2.0f * current_frame);
   // microdrag.lights[0].position[0] =  24 * sinf(0.5f * current_frame);
+
+  vec3 y = { 0, 1, 0 };
+  quat_rotate(character->skel->rest_pose->joint_rotations[30], current_frame, y);
+  // character->skel->rest_pose->joint_positions[34][0] += 2;
 
   // audio
   audio_move_listener(game_camera.pos);
@@ -147,7 +162,10 @@ void game_render() {
   place_target[1] = round(place_target[1]);
   place_target[2] = round(place_target[2]);
   vec3_copy(select_cube->position, place_target);
-  render_list_add(game_render_list, select_cube);
+  // render_list_add(game_render_list, select_cube);
+
+  // render character
+  render_list_add(game_render_list, character);
 
   // render
   renderer_render_objects(game_render_list->objects, game_render_list->size, &lights, num_lights, &game_camera, ui_render, &sky);

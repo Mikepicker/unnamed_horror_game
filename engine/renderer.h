@@ -8,6 +8,7 @@
 #include "data/light.h"
 #include "data/camera.h"
 #include "data/ray.h"
+#include "data/frame.h"
 
 #define SHADOW_WIDTH 1024 * 4
 #define SHADOW_HEIGHT 1024 * 4

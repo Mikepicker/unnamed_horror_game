@@ -22,6 +22,65 @@ static vertex* vertices;
 static int meshes_size, meshes_count;
 static mesh* meshes;
 
+typedef struct {
+  int joint_ids[3];
+  float weights[3];
+  int count;
+} vertex_weights;
+
+static int has_skl_file;
+static vertex_weights* vweights;
+
+static skeleton* import_skl(const char* filename) {
+  FILE* file = fopen(filename, "r");
+  char line[256];
+
+  skeleton* skl = skeleton_create();
+
+  // 0 = none, 1 = joints, 2 = weights
+  int state = 0;
+   
+  while (fgets(line, sizeof(line), file)) {
+    if (strstr(line, "joints") != NULL) {
+      state = 1;
+    } else if (strstr(line, "weights") != NULL) {
+      state = 2;
+
+      int weights_size = 0;
+      sscanf(line, "weights %d", &weights_size);
+
+      vweights = malloc(weights_size * sizeof(*vweights));
+    } else {
+      if (state == 1) { // joints
+        int joint_id;
+        char joint_name[256];
+        int parent_id;
+        mat4 t;
+
+        sscanf(line, "%d %s %d %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
+            &joint_id, joint_name, &parent_id,
+            &t[0][0], &t[1][0], &t[2][0], &t[3][0],
+            &t[0][1], &t[1][1], &t[2][1], &t[3][1],
+            &t[0][2], &t[1][2], &t[2][2], &t[3][2],
+            &t[0][3], &t[1][3], &t[2][3], &t[3][3]);
+
+        skeleton_joint_add(skl, joint_id, joint_name, parent_id, t);
+      } else if (state == 2) { // weights
+        int vertex_id, joint_id;
+        float weight;
+        sscanf(line, "%d %d %f", &vertex_id, &joint_id, &weight);
+
+        vertex_weights* vw = &vweights[vertex_id];
+        vw->joint_ids[vw->count] = joint_id;
+        vw->weights[vw->count] = weight;
+        vw->count++;
+      }
+    }
+  }
+
+  return skl;
+}
+
 static void import_mtl(const char* filename) {
   FILE* file = fopen(filename, "r");
   char line[256];
@@ -98,6 +157,15 @@ static void push_index(const char* vkey) {
     vertices[total_vertices].nx = vn_index >= 0 ? temp_normals[vn_index][0] : 0.0f;
     vertices[total_vertices].ny = vn_index >= 0 ? temp_normals[vn_index][1] : 0.0f;
     vertices[total_vertices].nz = vn_index >= 0 ? temp_normals[vn_index][2] : 0.0f;
+
+    if (has_skl_file) {
+      vertices[total_vertices].jx = vweights[v_index].joint_ids[0];
+      vertices[total_vertices].jy = vweights[v_index].joint_ids[1];
+      vertices[total_vertices].jz = vweights[v_index].joint_ids[2];
+      vertices[total_vertices].wx = vweights[v_index].weights[0];
+      vertices[total_vertices].wy = vweights[v_index].weights[1];
+      vertices[total_vertices].wz = vweights[v_index].weights[2];
+    }
     
     // update indices
     int* index = malloc(sizeof(int));
@@ -163,6 +231,13 @@ object* importer_load_obj(const char* filename) {
 
   init_structures();
   
+  // import skl and anm
+  skeleton* skl = NULL;
+  if (access("assets/character/character.skl", F_OK) != -1) {
+    has_skl_file = 1;
+    skl = import_skl("assets/character/character.skl");
+  }
+
   // materials dictionary
   materials = dict_new(INIT_SIZE);
 
@@ -269,5 +344,9 @@ object* importer_load_obj(const char* filename) {
   free(temp_normals);
   dict_free(materials);
 
-  return object_create(NULL, 1.0f, meshes, meshes_count, 1);
+  if (has_skl_file) {
+    free(vweights);
+  }
+
+  return object_create(NULL, 1.0f, meshes, meshes_count, 1, skl);
 }

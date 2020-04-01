@@ -4,27 +4,36 @@
 #include "../engine.h"
 #include "mesh.h"
 #include "aabb.h"
+#include "skeleton.h"
 
 typedef struct {
+  // transform
   vec3 position;
   vec3 center;
   GLfloat scale;
   quat rotation;
 
+  // meshes
   mesh* meshes;
   int num_meshes;
 
+  // shaders
   vec3 color_mask;
   int glowing;
   vec3 glow_color;
   int receive_shadows;
 
+  // physics
   aabb box;
 
+  // audio
   ALuint audio_source;
+
+  // animations
+  skeleton* skel;
 } object;
 
-object* object_create(vec3 position, GLfloat scale, mesh* meshes, int num_meshes, int compute_center);
+object* object_create(vec3 position, GLfloat scale, mesh* meshes, int num_meshes, int compute_center, skeleton* s);
 void object_get_transform(const object* o, mat4 m);
 void object_get_center(const object* o, vec3* out_center);
 void object_set_center(object* o);

@@ -80,7 +80,7 @@ object* factory_create_sphere(float radius, int sector_count, int stack_count) {
   m->indices = indices;
   m->num_indices = icount;
 
-  object* obj = object_create(NULL, 1.0f, m, 1, 1);
+  object* obj = object_create(NULL, 1.0f, m, 1, 1, NULL);
   return obj;
 }
 
@@ -109,7 +109,7 @@ object* factory_create_plane(float width, float height) {
   m->indices = indices;
   m->num_indices = 6;
 
-  object* obj = object_create(NULL, 1.0f, m, 1, 1);
+  object* obj = object_create(NULL, 1.0f, m, 1, 1, NULL);
   return obj;
 }
 
@@ -239,6 +239,6 @@ object* factory_create_box(float width, float height, float depth) {
   m->vertices = vertices;
   m->indices = indices;
 
-  object* obj = object_create(NULL, 1.0f, m, 1, 1);
+  object* obj = object_create(NULL, 1.0f, m, 1, 1, NULL);
   return obj;
 }

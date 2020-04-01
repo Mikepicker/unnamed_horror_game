@@ -1,1 +1,1 @@
-make && cd game && gdb microdrag
+make && cd game && gdb craft

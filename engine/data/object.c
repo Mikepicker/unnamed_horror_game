@@ -1,6 +1,6 @@
 #include "object.h"
 
-object* object_create(vec3 position, GLfloat scale, mesh* meshes, int num_meshes, int compute_center) {
+object* object_create(vec3 position, GLfloat scale, mesh* meshes, int num_meshes, int compute_center, skeleton* s) {
   object* obj = (object*)malloc(sizeof(object));
 
   vec3 zero_vec = { 0, 0, 0 };
@@ -23,6 +23,9 @@ object* object_create(vec3 position, GLfloat scale, mesh* meshes, int num_meshes
 
   // center
   if (compute_center) { object_set_center(obj); }
+
+  // skeleton
+  obj->skel = s;
 
   return obj;
 }
@@ -111,4 +114,8 @@ void object_free(object* o) {
     free(o->meshes[0].vertices);
   }
   free(o->meshes);
+
+  if (o->skel != NULL) {
+    free(o->skel);
+  }
 }

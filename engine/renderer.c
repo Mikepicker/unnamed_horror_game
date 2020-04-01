@@ -193,21 +193,32 @@ void renderer_init_object(object* o) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->num_indices * sizeof(GLuint), mesh->indices, GL_STATIC_DRAW);
 
+    // sum of all vertex components
+    int total_size = 17;
+
     // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(GLfloat), (GLvoid *)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, total_size * sizeof(GLfloat), (GLvoid *)0);
     glEnableVertexAttribArray(0);
 
     // texture coord attribute
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 11 * sizeof(GLfloat), (GLvoid *)(3 * sizeof(GLfloat)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, total_size * sizeof(GLfloat), (GLvoid *)(3 * sizeof(GLfloat)));
     glEnableVertexAttribArray(1);
 
     // normals attribute
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(GLfloat), (GLvoid *)(5 * sizeof(GLfloat)));
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, total_size * sizeof(GLfloat), (GLvoid *)(5 * sizeof(GLfloat)));
     glEnableVertexAttribArray(2);
 
     // tangents attribute
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(GLfloat), (GLvoid *)(8 * sizeof(GLfloat)));
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, total_size * sizeof(GLfloat), (GLvoid *)(8 * sizeof(GLfloat)));
     glEnableVertexAttribArray(3);
+
+    // joint ids attribute
+    glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, total_size * sizeof(GLfloat), (GLvoid *)(11 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(4);
+
+    // weights attribute
+    glVertexAttribPointer(5, 3, GL_FLOAT, GL_FALSE, total_size * sizeof(GLfloat), (GLvoid *)(14 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(5);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -217,7 +228,7 @@ void renderer_init_object(object* o) {
     mesh->normal_map_id = load_image(mesh->mat.normal_map_path);
     mesh->specular_map_id = load_image(mesh->mat.specular_map_path);
 
-    add_aabb(o);
+    // add_aabb(o);
   }
 }
 
@@ -291,6 +302,15 @@ static void render_objects(object *objects[], int objects_length, GLuint shader_
     mat4_mul(m, m, t2);
 
     glUniformMatrix4fv(glGetUniformLocation(shader_id, "M"), 1, GL_FALSE, (const GLfloat*) m);
+
+    // handle animated objects
+    if (o->skel != NULL) {
+      frame_gen_transforms(o->skel->rest_pose);
+      glUniformMatrix4fv(glGetUniformLocation(shader_id, "bone_world_matrices"), o->skel->joint_count, GL_FALSE, (const GLfloat*) o->skel->rest_pose->transforms);
+      glUniform1i(glGetUniformLocation(shader_id, "has_skeleton"), 1);
+    } else {
+      glUniform1i(glGetUniformLocation(shader_id, "has_skeleton"), 0);
+    }
     
     // render params
     glUniform3fv(glGetUniformLocation(shader_id, "color_mask"), 1, o->color_mask);
