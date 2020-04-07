@@ -4,6 +4,8 @@
 #include "engine.h"
 #include "data/object.h"
 #include "data/skeleton.h"
+#include "data/frame.h"
+#include "data/animation.h"
 
 object* importer_load_obj(const char *filename);
 

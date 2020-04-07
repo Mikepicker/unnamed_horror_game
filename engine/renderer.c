@@ -305,8 +305,7 @@ static void render_objects(object *objects[], int objects_length, GLuint shader_
 
     // handle animated objects
     if (o->skel != NULL) {
-      frame_gen_transforms(o->skel->rest_pose);
-      glUniformMatrix4fv(glGetUniformLocation(shader_id, "bone_world_matrices"), o->skel->joint_count, GL_FALSE, (const GLfloat*) o->skel->rest_pose->transforms);
+      glUniformMatrix4fv(glGetUniformLocation(shader_id, "bone_world_matrices"), o->skel->joint_count, GL_FALSE, (const GLfloat*) o->skel->current_frame.transforms);
       glUniform1i(glGetUniformLocation(shader_id, "has_skeleton"), 1);
     } else {
       glUniform1i(glGetUniformLocation(shader_id, "has_skeleton"), 0);

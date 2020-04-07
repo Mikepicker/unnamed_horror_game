@@ -49,7 +49,10 @@ static skeleton* import_skl(const char* filename) {
       int weights_size = 0;
       sscanf(line, "weights %d", &weights_size);
 
-      vweights = malloc(weights_size * sizeof(*vweights));
+      vweights = malloc(weights_size * sizeof(vertex_weights));
+      for (int i = 0; i < weights_size; i++) {
+        vweights[i].count = 0;
+      }
     } else {
       if (state == 1) { // joints
         int joint_id;
@@ -78,7 +81,68 @@ static skeleton* import_skl(const char* filename) {
     }
   }
 
+  // compute world transform
+  frame_gen_transforms(&skl->rest_pose);
+
+  // compute inverse world transform
+  frame_gen_inv_transforms(&skl->rest_pose);
+
+  // copy rest pose to current frame
+  frame_copy_to(&skl->rest_pose, &skl->current_frame);
+
   return skl;
+}
+
+static animation* import_anm(const char* filename, skeleton* s) {
+  FILE* file = fopen(filename, "r");
+  char line[256];
+
+  animation* anm = animation_create();
+
+  // 0 = none, 1 = keyframes, 2 = animations
+  int state = 0;
+  int keyframe_id = 0;
+  while (fgets(line, sizeof(line), file)) {
+    if (strstr(line, "keyframes") != NULL) {
+      state = 1;
+    } else if (strstr(line, "time") != NULL) {
+      if (state == 1) {
+        keyframe_id = 0;
+        anm->frame_count = anm->keyframe_count;
+      }
+      state = 2; 
+      sscanf(line, "time %d", &keyframe_id);
+    } else {
+      if (state == 1) {
+        float time;
+        sscanf(line, "%f", &time);
+        animation_add_keyframe(anm, time);
+        frame_copy_to(&s->rest_pose, &anm->frames[keyframe_id]);
+        keyframe_id++;
+      } else if (state == 2) {
+
+        int joint_id;
+        mat4 t;
+
+        sscanf(line, "%d %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
+            &joint_id,
+            &t[0][0], &t[1][0], &t[2][0], &t[3][0],
+            &t[0][1], &t[1][1], &t[2][1], &t[3][1],
+            &t[0][2], &t[1][2], &t[2][2], &t[3][2],
+            &t[0][3], &t[1][3], &t[2][3], &t[3][3]);
+
+        // set rotation
+        quat_from_mat4(anm->frames[keyframe_id].joint_rotations[joint_id], t);
+
+        // set position
+        vec3 position = { t[3][0], t[3][1], t[3][2] };
+        vec3_copy(anm->frames[keyframe_id].joint_positions[joint_id], position);
+
+      }
+    }
+  }
+
+  return anm;
 }
 
 static void import_mtl(const char* filename) {
@@ -232,10 +296,12 @@ object* importer_load_obj(const char* filename) {
   init_structures();
   
   // import skl and anm
-  skeleton* skl = NULL;
+  skeleton* skel = NULL;
+  animation* anim = NULL;
   if (access("assets/character/character.skl", F_OK) != -1) {
     has_skl_file = 1;
-    skl = import_skl("assets/character/character.skl");
+    skel = import_skl("assets/character/character.skl");
+    anim = import_anm("assets/character/character.anm", skel);
   }
 
   // materials dictionary
@@ -348,5 +414,5 @@ object* importer_load_obj(const char* filename) {
     free(vweights);
   }
 
-  return object_create(NULL, 1.0f, meshes, meshes_count, 1, skl);
+  return object_create(NULL, 1.0f, meshes, meshes_count, 1, skel, anim);
 }

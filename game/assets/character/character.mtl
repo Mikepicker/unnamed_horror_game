@@ -1,0 +1,8 @@
+newmtl mutant_M
+Ke 0.000000 0.000000 0.000000
+Ka 0.200000 0.200000 0.200000
+map_Kd textures/Mutant_diffuse.png
+Ks 0.200000 0.200000 0.200000
+Ns 6.153846
+d 1.000000
+map_Kn textures/Mutant_normal.png

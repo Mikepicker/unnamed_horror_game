@@ -14,13 +14,12 @@ typedef struct {
   mat4 transforms_inv[MAX_JOINTS];
 } frame;
 
-frame* frame_new();
+frame* frame_create();
 frame* frame_copy(frame* f);
 frame* frame_interpolate(frame* f0, frame* f1, float amount);
 void frame_copy_to(frame* f, frame* out);
 void frame_interpolate_to(frame* f0, frame* f1, float amount, frame* out);
 void frame_descendants_to(frame* f0, frame* f1, float amount, int joint, frame* out);
-void frame_delete(frame* f);
 
 void frame_joint_transform(mat4 ret, frame* f, int i);
 void frame_joint_add(frame* f, int joint_id, int parent, vec3 position, quat rotation);

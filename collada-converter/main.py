@@ -1,5 +1,7 @@
 import copy
+import operator
 import xml.etree.ElementTree as ET
+from functools import reduce
 
 INPUT_NAME = 'Walking.dae'
 OUTPUT_NAME = 'character'
@@ -56,7 +58,7 @@ def extract_technique(effect_node, newparams, textures):
     technique = []
 
     # get params
-    phong_node = effect_node.find('.//phong') or effect_node.find('.//blinn')
+    phong_node = effect_node.find('.//lambert') or effect_node.find('.//phong') or effect_node.find('.//blinn')
     param_nodes = list(phong_node)
     for p_node in param_nodes:
 
@@ -88,11 +90,18 @@ def extract_technique(effect_node, newparams, textures):
 def extract_materials():
     # get all textures
     textures = {}
-    image_nodes = list(library_images)
-    for i_node in image_nodes:
-        init_from_node = i_node.find('init_from')
-        ref_node = init_from_node.find('ref')
-        textures[i_node.attrib['id']] = ref_node.text if ref_node != None else init_from_node.text
+    if library_images != None:
+        image_nodes = list(library_images)
+        for i_node in image_nodes:
+            init_from_node = i_node.find('init_from')
+            ref_node = init_from_node.find('ref')
+            textures[i_node.attrib['id']] = ref_node.text if ref_node != None else init_from_node.text
+    else:
+        print("[extract_materials] No images")
+
+    if library_effects == None:
+        print('[extract_materials] No effects')
+        return []
 
     # effects
     effects = {}
@@ -201,8 +210,10 @@ def extract_geometry():
         faces = extract_faces(mesh_node, poly_node)
 
         # material
-        material_symbol = poly_node.attrib['material']
-        material_id = library_vs.find('.//instance_material').attrib['target'][1:]
+        material_id = -1
+        if 'material' in poly_node.attrib:
+            material_symbol = poly_node.attrib['material']
+            material_id = library_vs.find('.//instance_material').attrib['target'][1:]
 
         res.append({ "positions": positions, "normals": normals, "uvs": uvs, "faces": faces, "material_id": material_id })
 
@@ -211,15 +222,20 @@ def extract_geometry():
 # ----------------- SKIN DATA ----------------- #
 # joints list and vertex weights
 
+def get_max_weight(l):
+    m = 0
+    for i in range(len(l)):
+        if l[i]['weight'] > l[m]['weight']:
+            m = i
+    
+    return m
+
 def limit_vertex_data(vertex_data):
     vertex_data = sorted(vertex_data, key=lambda k: k['weight'], reverse=True)
     res = vertex_data
-    if len(vertex_data) > 3:
-        res = vertex_data[:3]
-        remaining = 1 - sum(list(map(lambda x: float(x['weight']), res)))
-        for i in range(3):
-            res[i]['weight'] = float(res[i]['weight']) + (remaining / 3)
-    elif len(vertex_data) == 1:
+
+    # len < 3
+    if len(vertex_data) == 1:
         res.append(copy.deepcopy(res[0]))
         res[1]['weight'] = 0
         res.append(copy.deepcopy(res[0]))
@@ -227,14 +243,45 @@ def limit_vertex_data(vertex_data):
     elif len(vertex_data) == 2:
         res.append(copy.deepcopy(res[0]))
         res[2]['weight'] = 0
+    elif len(res) > 3:
+        # res = res[:3]
+        g3 = []
+        for i in range(3):
+            g3.append(res.pop(get_max_weight(res)))
 
+        remaining = 1 - sum(list(map(lambda x: float(x['weight']), res)))
+        for i in range(3):
+            g3[i]['weight'] = float(g3[i]['weight']) + (remaining / 3)
+
+        res = g3
+
+    # make sum add up to 1
+    total = sum(list(map(lambda x: float(x['weight']), res)))
+    for v in res:
+       v['weight'] = float(v['weight']) / total
 
     return res
+
+    # len >= 3
+    '''
+    g3 = []
+    for i in range(3):
+        g3.append(res.pop(get_max_weight(res)))
+
+    if len(res) > 3:
+        remaining = 1 - sum(list(map(lambda x: float(x['weight']), res)))
+        for i in range(3):
+            g3[i]['weight'] = float(g3[i]['weight']) + (remaining / 3)
+
+    return g3
+
+    '''
 
 def extract_joints():
     joints_data = []
     controller = library_controllers.find('controller')
-    joints_tag = root.find('.//Name_array')
+    joints_id = library_controllers.find('.//joints').find('input[@semantic="JOINT"]').attrib['source'][1:]
+    joints_tag = library_controllers.find('.//source[@id="' + joints_id + '"]').find('Name_array')
     joints = joints_tag.text.split()
 
     i = 0
@@ -260,9 +307,9 @@ def extract_vertex_weights():
     for count in counts:
         vertex_data = []
         for w in range(int(count)):
-            joint_id = weights_map[pointer]
+            joint_id = int(weights_map[pointer])
             pointer += 1
-            weight_id = weights_map[pointer]
+            weight_id = int(weights_map[pointer])
             pointer += 1
             vertex_data.append({ "vertex_id": vertex_id, "joint_id": joint_id, "weight": weights[int(weight_id)] })
 
@@ -279,7 +326,7 @@ def extract_vertex_weights():
 # joints hierarchy and transforms
 
 def extract_joint_data(joints, joint_node):
-    joint_name = joint_node.attrib['id']
+    joint_name = joint_node.attrib['sid']
     
     if joint_name not in joints:
         print("[extract_joint_data] skipping " + joint_name)
@@ -301,7 +348,7 @@ def extract_joint_data(joints, joint_node):
 def extract_skeleton(joints):
     skeleton = []
 
-    skeleton_node = library_vs.find('.//node').find('.//skeleton')
+    skeleton_node = library_vs.find('.//skeleton')
     head_joint_node = library_vs.find('.//node[@id="' + skeleton_node.text[1:] + '"]')
 
     head_joint_data = extract_joint_data(joints, head_joint_node) 
@@ -316,14 +363,16 @@ def extract_animations(joints):
     transforms = []
     duration = 0
      
-    keyframes = safe_split(library_anim.find('animation').find('source').find('float_array').text.replace('\n', ' '))
+    keyframes = safe_split(library_anim.find('animation').find('.//source').find('float_array').text.replace('\n', ' '))
 
     duration = keyframes[len(keyframes) - 1]
 
     animation_nodes = library_anim.findall('animation')
     for joint_node in animation_nodes:
         joint_name = joint_node.find('channel').attrib['target'].split('/')[0]
+        joint_data_sid = library_vs.find('.//node[@id="' + joint_name + '"]').attrib['sid']
         joint_data_id = joint_node.find('sampler').find('.//input[@semantic="OUTPUT"]').attrib['source'][1:]
+        print(joint_data_id)
         joint_data_float_array = joint_node.find('.//source[@id="' + joint_data_id + '"]').find('float_array')
         joint_transforms = safe_split(joint_data_float_array.text)
 
@@ -331,25 +380,26 @@ def extract_animations(joints):
         transforms_out = []
         for i in range(int(len(joint_transforms) / 16)):
             t = []
-            t.append(joint_transforms[i * 4 + 0])
-            t.append(joint_transforms[i * 4 + 1])
-            t.append(joint_transforms[i * 4 + 2])
-            t.append(joint_transforms[i * 4 + 3])
-            t.append(joint_transforms[i * 4 + 4])
-            t.append(joint_transforms[i * 4 + 5])
-            t.append(joint_transforms[i * 4 + 6])
-            t.append(joint_transforms[i * 4 + 7])
-            t.append(joint_transforms[i * 4 + 8])
-            t.append(joint_transforms[i * 4 + 9])
-            t.append(joint_transforms[i * 4 + 10])
-            t.append(joint_transforms[i * 4 + 11])
-            t.append(joint_transforms[i * 4 + 12])
-            t.append(joint_transforms[i * 4 + 13])
-            t.append(joint_transforms[i * 4 + 14])
-            t.append(joint_transforms[i * 4 + 15])
+            t.append(joint_transforms[i * 16 + 0])
+            t.append(joint_transforms[i * 16 + 1])
+            t.append(joint_transforms[i * 16 + 2])
+            t.append(joint_transforms[i * 16 + 3])
+            t.append(joint_transforms[i * 16 + 4])
+            t.append(joint_transforms[i * 16 + 5])
+            t.append(joint_transforms[i * 16 + 6])
+            t.append(joint_transforms[i * 16 + 7])
+            t.append(joint_transforms[i * 16 + 8])
+            t.append(joint_transforms[i * 16 + 9])
+            t.append(joint_transforms[i * 16 + 10])
+            t.append(joint_transforms[i * 16 + 11])
+            t.append(joint_transforms[i * 16 + 12])
+            t.append(joint_transforms[i * 16 + 13])
+            t.append(joint_transforms[i * 16 + 14])
+            t.append(joint_transforms[i * 16 + 15])
+        
             transforms_out.append(t)
 
-        transforms.append({ "joint_id": joints.index(joint_name), "transforms": transforms_out })
+        transforms.append({ "joint_id": joints.index(joint_data_sid), "transforms": transforms_out })
 
     return { "keyframes": keyframes, "animations": transforms, "duration": duration }
 
@@ -420,7 +470,7 @@ def export_obj(geometry, materials):
         'normal': 'Kn'
     }
 
-    skip_list = ['reflectivity', 'reflective', 'transparent']
+    skip_list = ['reflectivity', 'reflective', 'transparent', 'index_of_refraction']
 
     for m in materials:
         mtl_out.write('newmtl ' + str(m['id']) + '\n')
@@ -463,19 +513,28 @@ def export_anm(animations):
     anm_out = open(OUTPUT_NAME + '.anm', 'w')
 
     # duration
-    anm_out.write('duration ' + animations['duration'] + '\n')
+    # anm_out.write('duration ' + animations['duration'] + '\n')
 
     # keyframes list
     anm_out.write('keyframes\n' + '\n'.join(animations['keyframes']) + '\n')
 
     # joint_id keyframe_id transform
-    anm_out.write('animations\n')
+    # anm_out.write('animations\n')
+    res = []
+    for k in animations['keyframes']:
+        res.append([])
+
     for a in animations['animations']:
         keyframe_id = 0
         for t in a['transforms']:
-            print(t)
-            anm_out.write(str(keyframe_id) + ' ' + str(a['joint_id']) + ' ' + ' '.join(t) + '\n') 
+            line = str(a['joint_id']) + ' ' + ' '.join(t) + '\n'
+            res[keyframe_id].append(line)
             keyframe_id += 1
+    
+    for i in range(len(res)):
+        anm_out.write('time ' + str(i) + '\n')
+        for d in res[i]:
+            anm_out.write(d) 
 
     anm_out.close()
 
@@ -485,6 +544,7 @@ materials = extract_materials()
 export_obj(geometry, materials)
 
 joints = extract_joints()
+print(joints)
 
 weights = extract_vertex_weights()
 skeleton = extract_skeleton(joints)

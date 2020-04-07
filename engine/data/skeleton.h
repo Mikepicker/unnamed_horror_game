@@ -7,7 +7,8 @@
 typedef struct {
   int joint_count;
   char joint_names[256];
-  frame* rest_pose;
+  frame rest_pose;
+  frame current_frame;
 } skeleton;
 
 skeleton* skeleton_create();

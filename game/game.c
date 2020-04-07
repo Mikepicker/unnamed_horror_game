@@ -104,7 +104,7 @@ void game_init(GLFWwindow* w) {
 
   vec3 z_axis = { 1, 0, 0 };
   // quat_rotate(character->rotation, to_radians(-90), z_axis);
-  // character->position[1] += 50;
+  character->position[1] += 2;
   renderer_init_object(character);
 
   state = MENU;
@@ -130,8 +130,9 @@ void game_update() {
   // microdrag.lights[0].position[0] =  24 * sinf(0.5f * current_frame);
 
   vec3 y = { 0, 1, 0 };
-  quat_rotate(character->skel->rest_pose->joint_rotations[30], current_frame, y);
-  // character->skel->rest_pose->joint_positions[34][0] += 2;
+  animator_update(character, current_frame);
+  // quat_rotate(character->skel->current_frame.joint_rotations[30], current_frame, y);
+  // character->skel->current_frame->joint_positions[34][0] += 2;
 
   // audio
   audio_move_listener(game_camera.pos);

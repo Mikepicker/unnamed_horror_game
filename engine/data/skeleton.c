@@ -5,13 +5,14 @@ skeleton* skeleton_create() {
   skeleton* s = malloc(sizeof(skeleton));
   s->joint_count = 0;
   // s->joint_names = NULL;
-  s->rest_pose = frame_new();
+  s->rest_pose.joint_count = 0;  
+  s->current_frame.joint_count = 0;  
+
   return s;
   
 }
 
 void skeleton_free(skeleton* s) {
-  frame_delete(s->rest_pose);
   free(s);
 }
 
@@ -27,17 +28,18 @@ void skeleton_joint_add(skeleton* s, int joint_id, char* name, int parent, mat4 
 
   quat q;
   quat_identity(q);
-  frame_joint_add(s->rest_pose, joint_id, parent, zero, q);
+  frame_joint_add(&s->rest_pose, joint_id, parent, zero, q);
 
   // set rotation
-  quat_from_mat4(s->rest_pose->joint_rotations[joint_id], transform);
+  quat_from_mat4(s->rest_pose.joint_rotations[joint_id], transform);
 
   // set position
   vec3 position = { transform[3][0], transform[3][1], transform[3][2] };
-  vec3_copy(s->rest_pose->joint_positions[joint_id], position);
+  vec3_copy(s->rest_pose.joint_positions[joint_id], position);
 
   // set inverse position
-  mat4_invert(s->rest_pose->transforms_inv[joint_id], transform);
+  mat4_invert(s->rest_pose.transforms_inv[joint_id], transform);
+
 }
 
 int skeleton_joint_id(skeleton* s, char* name) {

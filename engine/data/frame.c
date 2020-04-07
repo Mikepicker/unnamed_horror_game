@@ -1,6 +1,6 @@
 #include "frame.h"
 
-frame* frame_new() {
+frame* frame_create() {
   frame* f = malloc(sizeof(frame));
   f->joint_count = 0;
   return f;
@@ -8,7 +8,7 @@ frame* frame_new() {
 
 frame* frame_copy(frame* f) {
   
-  frame* fn = frame_new();
+  frame* fn = frame_create();
   
   for (int i = 0; i < f->joint_count; i++) {
     frame_joint_add(fn, i, f->joint_parents[i], f->joint_positions[i], f->joint_rotations[i]);
@@ -36,8 +36,7 @@ void frame_interpolate_to(frame* f0, frame* f1, float amount, frame* out) {
 }
 
 void frame_copy_to(frame* f, frame* out) {
-  memcpy(out->joint_positions, f->joint_positions, sizeof(vec3) * f->joint_count);
-  memcpy(out->joint_rotations, f->joint_rotations, sizeof(quat) * f->joint_count);
+  memcpy(out, f, sizeof(frame));
 }
 
 static bool frame_descendant_of(frame* f, int decendent, int joint) {
@@ -62,43 +61,31 @@ void frame_descendants_to(frame* f0, frame* f1, float amount, int joint, frame* 
 
 }
 
-void frame_delete(frame* f) {
-  
-  free(f);
-  
-}
-
 // TODO: Optimize this, just compute all the transforms at once
 void frame_joint_transform(mat4 ret, frame* f, int i) {
   
-  if (f->joint_parents[i] == -1) {
-    mat4 rot;
-    mat4_identity(ret);
-    mat4_from_quat(rot, f->joint_rotations[i]);
-    
-    mat4_translate(ret, f->joint_positions[i][0], f->joint_positions[i][1], f->joint_positions[i][2]);
-    mat4_mul(ret, ret, rot);
-    mat4_mul(ret, ret, f->transforms_inv[i]);
-  } else {
+  mat4 rot;
+  mat4_identity(ret);
+
+  if (f->joint_parents[i] != -1) {
     mat4 prev;
     frame_joint_transform(prev, f, f->joint_parents[i]);
-    
-    mat4 rot;
-    mat4_identity(ret);
-    mat4_translate(ret, f->joint_positions[i][0], f->joint_positions[i][1], f->joint_positions[i][2]);
-
-    mat4_from_quat(rot, f->joint_rotations[i]);
-    mat4_mul(ret, ret, rot);
-
     mat4_mul(ret, ret, prev);
-    mat4_mul(ret, ret, f->transforms_inv[i]);
-  }
-  
+  }  
+
+  mat4 t;
+  mat4_translate(t, f->joint_positions[i][0], f->joint_positions[i][1], f->joint_positions[i][2]);
+
+  mat4_from_quat(rot, f->joint_rotations[i]);
+  mat4_mul(ret, ret, t);
+  mat4_mul(ret, ret, rot);
+
 }
 
 void frame_joint_add(frame* f, int joint_id, int parent, vec3 position, quat rotation) {
   
   f->joint_count++;
+  printf("[frame_joint_add] %d\n", f->joint_count);
   assert(f->joint_count < MAX_JOINTS);
 
   f->joint_parents[joint_id] = parent;
@@ -120,7 +107,6 @@ void frame_gen_transforms(frame* f) {
 void frame_gen_inv_transforms(frame* f) {
 
   for (int i = 0; i < f->joint_count; i++) {
-    frame_joint_transform(f->transforms[i], f, i);
     mat4_invert(f->transforms_inv[i], f->transforms[i]);
   }
 
