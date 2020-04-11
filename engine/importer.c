@@ -37,14 +37,16 @@ static skeleton* import_skl(const char* filename) {
 
   skeleton* skl = skeleton_create();
 
-  // 0 = none, 1 = joints, 2 = weights
+  // 0 = none, 1 = joints, 2 = joints_inv, 3 = weights
   int state = 0;
    
   while (fgets(line, sizeof(line), file)) {
     if (strstr(line, "joints") != NULL) {
       state = 1;
-    } else if (strstr(line, "weights") != NULL) {
+    } else if (strstr(line, "bindpose_inv") != NULL) {
       state = 2;
+    } else if (strstr(line, "weights") != NULL) {
+      state = 3;
 
       int weights_size = 0;
       sscanf(line, "weights %d", &weights_size);
@@ -68,7 +70,19 @@ static skeleton* import_skl(const char* filename) {
             &t[0][3], &t[1][3], &t[2][3], &t[3][3]);
 
         skeleton_joint_add(skl, joint_id, joint_name, parent_id, t);
-      } else if (state == 2) { // weights
+      } else if (state == 2) { // joints_inv
+        int joint_id;
+        mat4 t;
+
+        sscanf(line, "%d %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
+            &joint_id,
+            &t[0][0], &t[1][0], &t[2][0], &t[3][0],
+            &t[0][1], &t[1][1], &t[2][1], &t[3][1],
+            &t[0][2], &t[1][2], &t[2][2], &t[3][2],
+            &t[0][3], &t[1][3], &t[2][3], &t[3][3]);
+
+        mat4_copy(skl->rest_pose.transforms_inv[joint_id], t);
+      } else if (state == 3) { // weights
         int vertex_id, joint_id;
         float weight;
         sscanf(line, "%d %d %f", &vertex_id, &joint_id, &weight);
@@ -85,7 +99,7 @@ static skeleton* import_skl(const char* filename) {
   frame_gen_transforms(&skl->rest_pose);
 
   // compute inverse world transform
-  frame_gen_inv_transforms(&skl->rest_pose);
+  // frame_gen_inv_transforms(&skl->rest_pose);
 
   // copy rest pose to current frame
   frame_copy_to(&skl->rest_pose, &skl->current_frame);

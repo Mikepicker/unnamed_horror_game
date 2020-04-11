@@ -6,7 +6,7 @@ void animator_update(object* o, float time) {
 
   // frame_copy_to(&s->rest_pose, &s->current_frame);
 
-  animation_sample_to(a, time / 8, &s->current_frame);
+  animation_sample_to(a, time, &s->current_frame);
   // frame_copy_to(&a->frames[0], &s->current_frame);
   // frame_copy_to(&a->frames[(int)(dt / 2)], &s->current_frame);
 

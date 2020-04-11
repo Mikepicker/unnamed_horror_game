@@ -3,7 +3,7 @@ import operator
 import xml.etree.ElementTree as ET
 from functools import reduce
 
-INPUT_NAME = 'simple.dae'
+INPUT_NAME = 'Walking.dae'
 OUTPUT_NAME = 'character'
 
 # strip namespace from tags
@@ -272,6 +272,36 @@ def extract_joints():
 
     return joints_data
 
+def extract_inv_joints():
+    joints_inv_data = []
+
+    joints_inv_id = library_controllers.find('.//joints').find('input[@semantic="INV_BIND_MATRIX"]').attrib['source'][1:]
+    joints_inv_tag = library_controllers.find('.//source[@id="' + joints_inv_id + '"]').find('float_array')
+    joints_inv = safe_split(joints_inv_tag.text)
+
+    for i in range(int(len(joints_inv) / 16)):
+        t = []
+        t.append(joints_inv[i * 16 + 0])
+        t.append(joints_inv[i * 16 + 1])
+        t.append(joints_inv[i * 16 + 2])
+        t.append(joints_inv[i * 16 + 3])
+        t.append(joints_inv[i * 16 + 4])
+        t.append(joints_inv[i * 16 + 5])
+        t.append(joints_inv[i * 16 + 6])
+        t.append(joints_inv[i * 16 + 7])
+        t.append(joints_inv[i * 16 + 8])
+        t.append(joints_inv[i * 16 + 9])
+        t.append(joints_inv[i * 16 + 10])
+        t.append(joints_inv[i * 16 + 11])
+        t.append(joints_inv[i * 16 + 12])
+        t.append(joints_inv[i * 16 + 13])
+        t.append(joints_inv[i * 16 + 14])
+        t.append(joints_inv[i * 16 + 15])
+    
+        joints_inv_data.append(t)
+
+    return joints_inv_data
+
 def extract_vertex_weights():
     weights_data = []
 
@@ -352,7 +382,6 @@ def extract_animations(joints):
         joint_name = joint_node.find('channel').attrib['target'].split('/')[0]
         joint_data_sid = library_vs.find('.//node[@id="' + joint_name + '"]').attrib['sid']
         joint_data_id = joint_node.find('sampler').find('.//input[@semantic="OUTPUT"]').attrib['source'][1:]
-        print(joint_data_id)
         joint_data_float_array = joint_node.find('.//source[@id="' + joint_data_id + '"]').find('float_array')
         joint_transforms = safe_split(joint_data_float_array.text)
 
@@ -474,12 +503,19 @@ def write_skeleton(skeleton, skl_out):
         skl_out.write(str(j['joint_id']) + ' ' + str(j['joint_name']) + ' ' + str(j['parent_id']) + ' ' + ' '.join(j['transform']) + '\n')
         write_skeleton(j['children'], skl_out)
 
-def export_skl(weights, skeleton):
+def export_skl(weights, skeleton, joints_inv):
     skl_out = open(OUTPUT_NAME + '.skl', 'w')
 
     # joint_id joint_name parent_id transform
     skl_out.write('joints\n')
     write_skeleton(skeleton, skl_out)
+
+    # joints_inv
+    skl_out.write('bindpose_inv\n')
+    joint_id = 0
+    for j in joints_inv:
+        skl_out.write(str(joint_id) + ' ' + str(' '.join(j)) + '\n')
+        joint_id += 1
 
     # vertex_id joint_id weight
     skl_out.write('weights ' + str(len(weights)) + '\n')
@@ -524,11 +560,11 @@ materials = extract_materials()
 export_obj(geometry, materials)
 
 joints = extract_joints()
-print(joints)
+joints_inv = extract_inv_joints()
 
 weights = extract_vertex_weights()
 skeleton = extract_skeleton(joints)
-export_skl(weights, skeleton)
+export_skl(weights, skeleton, joints_inv)
 
 animations = extract_animations(joints)
 export_anm(animations)
