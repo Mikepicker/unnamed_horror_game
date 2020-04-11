@@ -3,7 +3,7 @@ import operator
 import xml.etree.ElementTree as ET
 from functools import reduce
 
-INPUT_NAME = 'Walking.dae'
+INPUT_NAME = 'simple.dae'
 OUTPUT_NAME = 'character'
 
 # strip namespace from tags
@@ -248,11 +248,6 @@ def limit_vertex_data(vertex_data):
         g3 = []
         for i in range(3):
             g3.append(res.pop(get_max_weight(res)))
-
-        remaining = 1 - sum(list(map(lambda x: float(x['weight']), res)))
-        for i in range(3):
-            g3[i]['weight'] = float(g3[i]['weight']) + (remaining / 3)
-
         res = g3
 
     # make sum add up to 1
@@ -261,21 +256,6 @@ def limit_vertex_data(vertex_data):
        v['weight'] = float(v['weight']) / total
 
     return res
-
-    # len >= 3
-    '''
-    g3 = []
-    for i in range(3):
-        g3.append(res.pop(get_max_weight(res)))
-
-    if len(res) > 3:
-        remaining = 1 - sum(list(map(lambda x: float(x['weight']), res)))
-        for i in range(3):
-            g3[i]['weight'] = float(g3[i]['weight']) + (remaining / 3)
-
-    return g3
-
-    '''
 
 def extract_joints():
     joints_data = []

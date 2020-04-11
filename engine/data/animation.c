@@ -20,7 +20,6 @@ void animation_free(animation* a) {
 }
 
 void animation_add_keyframe(animation* a, float k) {
-  printf("COUNT %d %d\n", a->keyframe_count, MAX_KEYFRAMES);
   assert(a->keyframe_count < MAX_KEYFRAMES);
   a->keyframes[a->keyframe_count++] = k; 
   a->duration = k;

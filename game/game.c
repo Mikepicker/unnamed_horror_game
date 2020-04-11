@@ -100,11 +100,11 @@ void game_init(GLFWwindow* w) {
 
   // load character
   character = importer_load_obj("assets/character/character.obj");
-  character->scale = 0.01f;
+  // character->scale = 0.01f;
 
   vec3 z_axis = { 1, 0, 0 };
-  // quat_rotate(character->rotation, to_radians(-90), z_axis);
-  character->position[1] += 2;
+  quat_rotate(character->rotation, to_radians(-90), z_axis);
+  character->position[1] += 4;
   renderer_init_object(character);
 
   state = MENU;

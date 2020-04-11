@@ -6,6 +6,6 @@
 #include "data/skeleton.h"
 #include "data/frame.h"
 
-void animator_update(object* o, float dt);
+void animator_update(object* o, float time);
 
 #endif
