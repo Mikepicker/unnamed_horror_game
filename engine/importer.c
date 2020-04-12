@@ -171,7 +171,7 @@ static animation* import_anm(const char* asset, skeleton* s) {
 
   char line[256];
 
-  animation* anm = animation_create();
+  animation* anm = animation_create("animation");
 
   // 0 = none, 1 = keyframes, 2 = animations
   int state = 0;
@@ -513,5 +513,7 @@ object* importer_load_obj(const char* asset) {
     free(vweights);
   }
 
-  return object_create(NULL, 1.0f, meshes, meshes_count, 1, skel, anim);
+  object* o = object_create(NULL, 1.0f, meshes, meshes_count, 1, skel);
+  object_add_animation(o, anim);
+  return o;
 }

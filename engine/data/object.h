@@ -7,6 +7,8 @@
 #include "skeleton.h"
 #include "animation.h"
 
+#define OBJECT_MAX_ANIMS 16
+
 typedef struct {
   // transform
   vec3 position;
@@ -32,10 +34,13 @@ typedef struct {
 
   // animations
   skeleton* skel;
-  animation* anim;
+  animation* anims[OBJECT_MAX_ANIMS];
+  int anim_count;
+  animation* current_anim;
 } object;
 
-object* object_create(vec3 position, GLfloat scale, mesh* meshes, int num_meshes, int compute_center, skeleton* s, animation* a);
+object* object_create(vec3 position, GLfloat scale, mesh* meshes, int num_meshes, int compute_center, skeleton* s);
+void object_add_animation(object* o, animation* a);
 void object_get_transform(const object* o, mat4 m);
 void object_get_center(const object* o, vec3* out_center);
 void object_set_center(object* o);

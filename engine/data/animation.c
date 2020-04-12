@@ -1,9 +1,10 @@
 #include "animation.h"
 
-animation* animation_create() {
+animation* animation_create(const char* name) {
   
   animation* a = malloc(sizeof(animation));
   
+  strcpy(a->name, name);
   a->keyframe_count = 0;
   a->frame_count = 0;
   a->frame_time = 1.0/30.0;

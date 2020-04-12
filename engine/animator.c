@@ -1,7 +1,19 @@
 #include "animator.h"
 
+int animator_play(object* o, const char* name) {
+  for (int i = 0; i < o->anim_count; i++) {
+    if (strcmp(o->anims[i]->name, name) == 0) {
+      o->current_anim = o->anims[i];
+      return 1;
+    }
+  }
+
+  printf("[animator] unable to find animation %s\n", name);
+  return 0;
+}
+
 void animator_update(object* o, float time) {
-  animation* a = o->anim;
+  animation* a = o->current_anim;
   skeleton* s = o->skel;
 
   // frame_copy_to(&s->rest_pose, &s->current_frame);

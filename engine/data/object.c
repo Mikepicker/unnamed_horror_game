@@ -1,6 +1,6 @@
 #include "object.h"
 
-object* object_create(vec3 position, GLfloat scale, mesh* meshes, int num_meshes, int compute_center, skeleton* s, animation* a) {
+object* object_create(vec3 position, GLfloat scale, mesh* meshes, int num_meshes, int compute_center, skeleton* s) {
   object* obj = (object*)malloc(sizeof(object));
 
   vec3 zero_vec = { 0, 0, 0 };
@@ -26,9 +26,21 @@ object* object_create(vec3 position, GLfloat scale, mesh* meshes, int num_meshes
 
   // skeleton
   obj->skel = s;
-  obj->anim = a;
+
+  obj->anim_count = 0;
 
   return obj;
+}
+
+void object_add_animation(object* o, animation* a) {
+  assert(o->anim_count + 1 < OBJECT_MAX_ANIMS);
+  o->anims[o->anim_count] = a;
+
+  if (o->anim_count == 0) {
+    o->current_anim = a;
+  }
+
+  o->anim_count++;
 }
 
 void object_get_transform(const object* o, mat4 m) {
@@ -119,5 +131,9 @@ void object_free(object* o) {
   if (o->skel != NULL) {
     skeleton_free(o->skel);
     free(o->skel);
+  }
+
+  for (int i = 0; i < o->anim_count; i++) {
+    animation_free(o->anims[i]);
   }
 }

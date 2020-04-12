@@ -7,6 +7,7 @@
 #define MAX_KEYFRAMES 512
 
 typedef struct {
+  char name[256];
   float keyframes[MAX_KEYFRAMES];
   int keyframe_count;
   frame frames[MAX_KEYFRAMES];
@@ -15,7 +16,7 @@ typedef struct {
   int duration;
 } animation;
 
-animation* animation_create();
+animation* animation_create(const char* name);
 void animation_free(animation* a);
 
 void animation_add_keyframe(animation* a, float k);
