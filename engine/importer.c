@@ -1,7 +1,8 @@
 #include "importer.h"
 
 const int INIT_SIZE = 256 * 10000;
-const char* ASSETS_PATH = "assets/character/";
+const char* TEXTURES_PATH = "/textures/";
+const char* ASSETS_PATH = "assets/";
 
 static vec3* temp_vertices;
 static vec2* temp_uvs;
@@ -31,8 +32,55 @@ typedef struct {
 static int has_skl_file;
 static vertex_weights* vweights;
 
-static skeleton* import_skl(const char* filename) {
-  FILE* file = fopen(filename, "r");
+static const char* get_filename_ext(const char* filename) {
+  const char* dot = strrchr(filename, '.');
+  if(!dot || dot == filename) return "";
+  return dot + 1;
+}
+
+static int find_file_ext(const char* asset, const char* ext, char* out_path) {
+  char dir[256];
+  strcpy(dir, ASSETS_PATH);
+  strcat(dir, asset);
+  strcat(dir, "/");
+
+  struct dirent *de;  // Pointer for directory entry 
+  DIR* dr = opendir(dir); 
+
+  if (dr == NULL) { 
+    printf("[find_file_ext] Could not open directory: %s\n", dir); 
+    return 0; 
+  } 
+
+  while ((de = readdir(dr)) != NULL) {
+    if (strcmp(ext, get_filename_ext(de->d_name)) == 0) {
+      strcpy(out_path, dir);
+      strcat(out_path, de->d_name);
+      closedir(dr);     
+      return 1;
+    }
+  }
+
+  closedir(dr);     
+  return 0; 
+}
+
+static skeleton* import_skl(const char* asset) {
+  // find asset/asset.skl
+  char skl_path[256];
+  if (!find_file_ext(asset, "skl", skl_path)) {
+    printf("[importer] cannot find skl file\n");
+    exit(1);
+  }
+
+  printf("[importer] found %s\n", skl_path);
+
+  FILE* file = fopen(skl_path, "r");
+  if (file == NULL) {
+    printf("[importer] cannot find file: %s\n", skl_path);
+    exit(1);
+  }
+
   char line[256];
 
   skeleton* skl = skeleton_create();
@@ -98,17 +146,29 @@ static skeleton* import_skl(const char* filename) {
   // compute world transform
   frame_gen_transforms(&skl->rest_pose);
 
-  // compute inverse world transform
-  // frame_gen_inv_transforms(&skl->rest_pose);
-
   // copy rest pose to current frame
   frame_copy_to(&skl->rest_pose, &skl->current_frame);
-
+  
+  fclose(file);
   return skl;
 }
 
-static animation* import_anm(const char* filename, skeleton* s) {
-  FILE* file = fopen(filename, "r");
+static animation* import_anm(const char* asset, skeleton* s) {
+  // find asset/asset.anm
+  char anm_path[256];
+  if (!find_file_ext(asset, "anm", anm_path)) {
+    printf("[importer] cannot find anm file\n");
+    exit(1);
+  }
+
+  printf("[importer] found %s\n", anm_path);
+
+  FILE* file = fopen(anm_path, "r");
+  if (file == NULL) {
+    printf("[importer] cannot find file: %s\n", anm_path);
+    exit(1);
+  }
+
   char line[256];
 
   animation* anm = animation_create();
@@ -156,13 +216,32 @@ static animation* import_anm(const char* filename, skeleton* s) {
     }
   }
 
+  fclose(file);
   return anm;
 }
 
-static void import_mtl(const char* filename) {
-  FILE* file = fopen(filename, "r");
-  char line[256];
+static void import_mtl(const char* asset) {
+  // find asset/asset.mtl
+  char mtl_path[256];
+  if (!find_file_ext(asset, "mtl", mtl_path)) {
+    printf("[importer] cannot find mtl file\n");
+    exit(1);
+  }
 
+  printf("[importer] found %s\n", mtl_path);
+
+  FILE* file = fopen(mtl_path, "r");
+  if (file == NULL) {
+    printf("[importer] cannot find file: %s\n", mtl_path);
+    exit(1);
+  }
+
+  char tex_path[256];
+  strcpy(tex_path, ASSETS_PATH);
+  strcat(tex_path, asset);
+  strcat(tex_path, TEXTURES_PATH);
+
+  char line[256];
   material* current_mat = NULL;
   int first = 1;
   while (fgets(line, sizeof(line), file)) {
@@ -179,10 +258,11 @@ static void import_mtl(const char* filename) {
     }
     // texture path
     else if (strstr(line, "map_Kd ") != NULL) {
-      strncpy(current_mat->texture_path, ASSETS_PATH, 256);
-      char tex_path[256];
-      sscanf(line, "map_Kd %s", tex_path);
-      strncat(current_mat->texture_path, tex_path, strlen(tex_path));
+      // assets/[asset]/textures/[diffuse].png
+      char diffuse_path[256];
+      sscanf(line, "map_Kd %s", diffuse_path);
+      strcpy(current_mat->texture_path, tex_path);
+      strcat(current_mat->texture_path, diffuse_path);
     }
     // diffuse
     else if (strstr(line, "Kd ") != NULL) {
@@ -194,10 +274,11 @@ static void import_mtl(const char* filename) {
     }
     // normal map path
     else if (strstr(line, "map_Kn ") != NULL) {
-      strncpy(current_mat->normal_map_path, ASSETS_PATH, 256);
-      char tex_path[256];
-      sscanf(line, "map_Kn %s", tex_path);
-      strncat(current_mat->normal_map_path, tex_path, strlen(tex_path));
+      // assets/[asset]/textures/[normal].png
+      char normal_path[256];
+      sscanf(line, "map_Kn %s", normal_path);
+      strcpy(current_mat->normal_map_path, tex_path);
+      strcat(current_mat->normal_map_path, normal_path);
     }
   }
 
@@ -297,13 +378,22 @@ static void init_structures() {
   meshes = malloc(meshes_size * sizeof(mesh));
 }
 
-object* importer_load_obj(const char* filename) {
+object* importer_load_obj(const char* asset) {
+  // find asset/asset.obj
+  char obj_path[256];
+  if (!find_file_ext(asset, "obj", obj_path)) {
+    printf("[importer] cannot find obj file\n");
+    exit(1);
+  }
+
+  printf("[importer] found %s\n", obj_path);
+
   /* parse vertices */
-  FILE* file = fopen(filename, "r");
+  FILE* file = fopen(obj_path, "r");
   char line[256];
 
   if (file == NULL) {
-    printf("[importer] cannot find file: %s\n", filename);
+    printf("[importer] cannot find file: %s\n", obj_path);
     exit(1);
   }
 
@@ -314,8 +404,8 @@ object* importer_load_obj(const char* filename) {
   animation* anim = NULL;
   if (access("assets/character/character.skl", F_OK) != -1) {
     has_skl_file = 1;
-    skel = import_skl("assets/character/character.skl");
-    anim = import_anm("assets/character/character.anm", skel);
+    skel = import_skl(asset);
+    anim = import_anm(asset, skel);
   }
 
   // materials dictionary
@@ -383,12 +473,7 @@ object* importer_load_obj(const char* filename) {
 
     // load mtl
     if (strstr(line, "mtllib ") != NULL) {
-      char mtl_name[128];
-      sscanf(line, "mtllib %s\n", mtl_name);
-      char mtl_path[128];
-      strncpy(mtl_path, ASSETS_PATH, 128);
-      strncat(mtl_path, mtl_name, 128);
-      import_mtl(mtl_path);
+      import_mtl(asset);
     }
 
     // use mtl

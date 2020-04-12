@@ -85,7 +85,6 @@ void frame_joint_transform(mat4 ret, frame* f, int i) {
 void frame_joint_add(frame* f, int joint_id, int parent, vec3 position, quat rotation) {
   
   f->joint_count++;
-  printf("[frame_joint_add] %d\n", f->joint_count);
   assert(f->joint_count < MAX_JOINTS);
 
   f->joint_parents[joint_id] = parent;
