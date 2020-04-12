@@ -7,6 +7,6 @@
 #include "data/frame.h"
 
 int animator_play(object* o, const char* name);
-void animator_update(object* o, float time);
+void animator_update(object* o, float dt);
 
 #endif

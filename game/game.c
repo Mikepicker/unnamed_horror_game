@@ -1,7 +1,5 @@
 #include "game.h"
 
-object* character;
-
 void game_init(GLFWwindow* w) {
   game_camera.front[0] = 0.0f;
   game_camera.front[1] = 0.0f;
@@ -99,13 +97,14 @@ void game_init(GLFWwindow* w) {
   memcpy(select_cube, sample_cube.o, sizeof(*sample_cube.o));
 
   // load character
-  character = importer_load_obj("assets/character/character.obj");
-  // character->scale = 0.01f;
+  character = importer_load("character");
+  character->scale = 0.01f;
 
   vec3 z_axis = { 1, 0, 0 };
-  quat_rotate(character->rotation, to_radians(-90), z_axis);
+  // quat_rotate(character->rotation, to_radians(-90), z_axis);
   character->position[1] += 4;
   renderer_init_object(character);
+  animator_play(character, "walking");
 
   state = MENU;
 }
@@ -130,7 +129,7 @@ void game_update() {
   // microdrag.lights[0].position[0] =  24 * sinf(0.5f * current_frame);
 
   vec3 y = { 0, 1, 0 };
-  animator_update(character, current_frame);
+  animator_update(character, delta_time);
   // quat_rotate(character->skel->current_frame.joint_rotations[30], current_frame, y);
   // character->skel->current_frame->joint_positions[34][0] += 2;
 

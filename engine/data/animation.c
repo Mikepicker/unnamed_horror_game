@@ -7,7 +7,8 @@ animation* animation_create(const char* name) {
   strcpy(a->name, name);
   a->keyframe_count = 0;
   a->frame_count = 0;
-  a->frame_time = 1.0/30.0;
+  a->frame_time = 0;
+  a->frame_speed = 1.0/30.0;
   
   for (int i = 0; i < MAX_KEYFRAMES; i++) {
     a->frames[i].joint_count = 0;  
@@ -32,7 +33,7 @@ static frame* animation_frame(animation* a, int i) {
   return &a->frames[i];
 }
 
-void animation_sample_to(animation* a, float time, frame* out) {
+void animation_sample_to(animation* a, float dt, frame* out) {
 
   assert(a->frame_count > 0);
 
@@ -40,11 +41,12 @@ void animation_sample_to(animation* a, float time, frame* out) {
     frame_copy_to(&a->frames[0], out);
   }
 
-  time = fmodf(time, a->frame_time * (a->frame_count-1));
+  a->frame_time += dt;
+  a->frame_time = fmodf(a->frame_time, a->frame_speed * (a->frame_count-1));
 
-  frame* frame0 = animation_frame(a, (time / a->frame_time) + 0);
-  frame* frame1 = animation_frame(a, (time / a->frame_time) + 1);
-  float amount = fmod(time / a->frame_time, 1.0);
+  frame* frame0 = animation_frame(a, (a->frame_time / a->frame_speed) + 0);
+  frame* frame1 = animation_frame(a, (a->frame_time / a->frame_speed) + 1);
+  float amount = fmod(a->frame_time / a->frame_speed, 1.0);
 
   frame_interpolate_to(frame0, frame1, amount, out);
 

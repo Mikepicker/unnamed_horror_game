@@ -45,6 +45,9 @@ object* select_cube;
 // where to place next cube
 vec3 place_target;
 
+// character
+object* character;
+
 // materials
 static material mat_stone;
 

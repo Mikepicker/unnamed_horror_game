@@ -32,6 +32,9 @@ typedef struct {
 static int has_skl_file;
 static vertex_weights* vweights;
 
+static animation* animations[OBJECT_MAX_ANIMS];
+static int animation_count = 0;
+
 static const char* get_filename_ext(const char* filename) {
   const char* dot = strrchr(filename, '.');
   if(!dot || dot == filename) return "";
@@ -153,25 +156,17 @@ static skeleton* import_skl(const char* asset) {
   return skl;
 }
 
-static animation* import_anm(const char* asset, skeleton* s) {
+static animation* import_anm(const char* anim_path, const char* anim_name, skeleton* s) {
   // find asset/asset.anm
-  char anm_path[256];
-  if (!find_file_ext(asset, "anm", anm_path)) {
-    printf("[importer] cannot find anm file\n");
-    exit(1);
-  }
-
-  printf("[importer] found %s\n", anm_path);
-
-  FILE* file = fopen(anm_path, "r");
+  FILE* file = fopen(anim_path, "r");
   if (file == NULL) {
-    printf("[importer] cannot find file: %s\n", anm_path);
+    printf("[importer] cannot find file: %s\n", anim_path);
     exit(1);
   }
 
   char line[256];
 
-  animation* anm = animation_create("animation");
+  animation* anm = animation_create(anim_name);
 
   // 0 = none, 1 = keyframes, 2 = animations
   int state = 0;
@@ -218,6 +213,36 @@ static animation* import_anm(const char* asset, skeleton* s) {
 
   fclose(file);
   return anm;
+}
+
+static void import_animations(const char* asset, skeleton* s) {
+  char dir[256];
+  strcpy(dir, ASSETS_PATH);
+  strcat(dir, asset);
+  strcat(dir, "/");
+
+  struct dirent *de;  // Pointer for directory entry 
+  DIR* dr = opendir(dir); 
+
+  if (dr == NULL) { 
+    printf("[find_file_ext] Could not open directory: %s\n", dir); 
+    return;
+  } 
+
+  char anim[256];
+
+  int i = 0;
+  while ((de = readdir(dr)) != NULL) {
+    if (strcmp("anm", get_filename_ext(de->d_name)) == 0) {
+      printf("[importer] found %s\n", de->d_name);
+      strcpy(anim, dir);
+      strcat(anim, de->d_name);
+      animations[animation_count] = import_anm(anim, strtok(de->d_name, "."), s);
+      animation_count++;
+    }
+  }
+
+  closedir(dr);     
 }
 
 static void import_mtl(const char* asset) {
@@ -378,7 +403,7 @@ static void init_structures() {
   meshes = malloc(meshes_size * sizeof(mesh));
 }
 
-object* importer_load_obj(const char* asset) {
+object* importer_load(const char* asset) {
   // find asset/asset.obj
   char obj_path[256];
   if (!find_file_ext(asset, "obj", obj_path)) {
@@ -401,11 +426,10 @@ object* importer_load_obj(const char* asset) {
   
   // import skl and anm
   skeleton* skel = NULL;
-  animation* anim = NULL;
   if (access("assets/character/character.skl", F_OK) != -1) {
     has_skl_file = 1;
     skel = import_skl(asset);
-    anim = import_anm(asset, skel);
+    import_animations(asset, skel);
   }
 
   // materials dictionary
@@ -514,6 +538,9 @@ object* importer_load_obj(const char* asset) {
   }
 
   object* o = object_create(NULL, 1.0f, meshes, meshes_count, 1, skel);
-  object_add_animation(o, anim);
+
+  for (int i = 0; i < animation_count; i++)
+    object_add_animation(o, animations[i]);
+
   return o;
 }

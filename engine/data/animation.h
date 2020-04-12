@@ -13,6 +13,7 @@ typedef struct {
   frame frames[MAX_KEYFRAMES];
   int frame_count;
   float frame_time;
+  float frame_speed;
   int duration;
 } animation;
 
@@ -21,6 +22,6 @@ void animation_free(animation* a);
 
 void animation_add_keyframe(animation* a, float k);
 
-void animation_sample_to(animation* a, float time, frame* out);
+void animation_sample_to(animation* a, float dt, frame* out);
 
 #endif
