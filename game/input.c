@@ -50,14 +50,6 @@ void input_key_callback(GLFWwindow* window, int key, int scancode, int action, i
   if (key == GLFW_KEY_H && action == GLFW_PRESS)
     place_cube();
 
-  if (key == GLFW_KEY_V && action == GLFW_PRESS) {
-    if (strcmp(character.o->current_anim->name, "walking") == 0) {
-      animator_play(character.o, "attack");
-    } else {
-      animator_play(character.o, "walking");
-    }
-  }
-
   if (key == GLFW_KEY_J && action == GLFW_PRESS)
     renderer_debug_enabled = renderer_debug_enabled == 0 ? 1 : 0;
   

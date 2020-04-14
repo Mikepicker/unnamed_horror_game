@@ -104,7 +104,8 @@ int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow
   // init vars
   renderer_render_aabb = 0;
   renderer_shadow_near = 1.0f;
-  renderer_shadow_far = 10.0f;
+  renderer_shadow_far = 40.0f;
+  renderer_shadow_size = 100.0f;
   renderer_debug_vao = 0;
   renderer_debug_enabled = 0;
   renderer_shadow_bias = 0.22f;
@@ -224,9 +225,14 @@ void renderer_init_object(object* o) {
     glBindVertexArray(0);
 
     // texture
+    printf("[renderer] loading diffuse map %s\n", mesh->mat.texture_path);
     mesh->texture_id = load_image(mesh->mat.texture_path);
+    printf("[renderer] loading normal map\n");
     mesh->normal_map_id = load_image(mesh->mat.normal_map_path);
+    printf("[renderer] loading specular map\n");
     mesh->specular_map_id = load_image(mesh->mat.specular_map_path);
+    printf("[renderer] loading mask map\n");
+    mesh->mask_map_id = load_image(mesh->mat.mask_map_path);
 
     // add_aabb(o);
   }
@@ -323,6 +329,7 @@ static void render_objects(object *objects[], int objects_length, GLuint shader_
       // pass material
       glUniform3fv(glGetUniformLocation(shader_id, "material.diffuse"), 1, mesh->mat.diffuse);
       glUniform3fv(glGetUniformLocation(shader_id, "material.specular"), 1, mesh->mat.specular);
+      glUniform1f(glGetUniformLocation(shader_id, "material.reflectivity"), mesh->mat.reflectivity);
 
       // bind texture
       if (strlen(mesh->mat.texture_path) > 0) {
@@ -353,6 +360,16 @@ static void render_objects(object *objects[], int objects_length, GLuint shader_
         glUniform1i(glGetUniformLocation(shader_id, "hasSpecularMap"), 1);
       } else {
         glUniform1i(glGetUniformLocation(shader_id, "hasSpecularMap"), 0);
+      }
+
+      // bind mask map
+      if (strlen(mesh->mat.mask_map_path) > 0) {
+        glUniform1i(glGetUniformLocation(shader_id, "maskMap"), 4);
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_2D, mesh->mask_map_id);
+        glUniform1i(glGetUniformLocation(shader_id, "hasMaskMap"), 1);
+      } else {
+        glUniform1i(glGetUniformLocation(shader_id, "hasMaskMap"), 0);
       }
 
       // render the mesh
@@ -405,8 +422,7 @@ void renderer_render_objects(object* objects[], int objects_length, light* light
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   mat4 light_proj, light_view, light_space;
-  float sz = 20.0f;
-  mat4_ortho(light_proj, -sz, sz, -sz, sz, renderer_shadow_near, renderer_shadow_far);
+  mat4_ortho(light_proj, -renderer_shadow_size, renderer_shadow_size, -renderer_shadow_size, renderer_shadow_size, renderer_shadow_near, renderer_shadow_far);
   vec3 up = { 0.0f, 0.0f, 1.0f };
   vec3 dir = { 0.0f, 0.0f, 0.0f };
   dir[0] = camera->pos[0];

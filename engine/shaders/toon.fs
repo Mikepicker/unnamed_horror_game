@@ -6,6 +6,7 @@ out vec4 FragColor;
 struct Material {
   vec3 diffuse;
   vec3 specular;
+  float reflectivity;
 }; 
 
 in vec3 Normal;  
@@ -60,6 +61,10 @@ in VS_OUT {
 uniform int hasSpecularMap;
 uniform sampler2D specularMap;
 
+// mask map
+uniform int hasMaskMap;
+uniform sampler2D maskMap;
+
 float shadowCalculation(vec4 fragPosLightSpace, vec3 lightDir) {
   // perform perspective divide
   vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
@@ -105,30 +110,32 @@ vec3 computeNormal()
 }
 
 void main() {
+  // Alpha masking
+  vec4 alpha = texture(texture1, Uvs).rgba;
+  if (alpha.a < 0.1)
+    discard;
+
   vec3 result = vec3(0.0);
   for (int i = 0; i < min(NR_LIGHTS, lightsNr); i++) {
     // ambient
-    float ambientStrength = 0.8;
+    float ambientStrength = 1.0;
     vec3 ambient = ambientStrength * lightsColors[i];
 
     // diffuse 
-    // vec3 norm = hasNormalMap > 0 ? computeNormal() : normalize(Normal);
     vec3 norm = hasNormalMap > 0 ? computeNormal() : normalize(Normal);
     vec3 lightDir = hasNormalMap > 0 ? normalize(fs_in.TangentLightPos - fs_in.TangentFragPos) : normalize(lightsPos[i] - FragPos);
     float diff = max(dot(norm, lightDir), 0.0);
     vec3 diffuse = diff * lightsColors[i];
 
     // specular
-    float specularStrength = 0.2;
     vec3 viewDir = hasNormalMap > 0 ? normalize(fs_in.TangentViewPos - fs_in.TangentFragPos) : normalize(cameraPos - FragPos);
     vec3 reflectDir = reflect(-lightDir, norm);  
     vec3 halfwayDir = normalize(lightDir + viewDir);
     float spec = pow(max(dot(norm, halfwayDir), 0.0), 64);
-    spec = spec > 0.01 ? 0.6 : 0;
 
     // skybox
     vec3 r = reflect(-viewDir, normalize(norm));
-    vec3 specular = specularStrength * spec * lightsColors[i] * material.specular + texture(skybox, r).rgb * material.specular;  
+    vec3 specular = spec * lightsColors[i] * material.specular + texture(skybox, r).rgb * material.reflectivity;
 
     if (hasSpecularMap > 0) {
       specular *= texture(specularMap, Uvs).rgb;
@@ -145,7 +152,7 @@ void main() {
   }
 
   // color mask
-  result += color_mask;
+  // result += color_mask;
 
   // glowing effect
   if (glowing == 1) {
@@ -153,5 +160,5 @@ void main() {
     result *= glow_color;
   }
 
-  FragColor = vec4(result, 1.0f);
+  FragColor = vec4(result, 1);
 } 

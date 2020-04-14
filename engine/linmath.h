@@ -115,6 +115,19 @@ static inline void vec3_reflect(vec3 r, vec3 const v, vec3 const n)
 		r[i] = v[i] - p*n[i];
 }
 
+static inline float vec3_angle_between(vec3 a, vec3 b, vec3 up) {
+  vec3 n;
+  vec3_mul_cross(n, a, up);
+  float s = vec3_dot(b, n);
+
+  float angle = acos(vec3_dot(a, b) / (vec3_len(a) * vec3_len(b)));
+  if (s < 0) {
+    return angle;
+  } else {
+    return (2 * M_PI) - angle;
+  }
+}
+
 static inline void vec4_mul_cross(vec4 r, vec4 a, vec4 b)
 {
 	r[0] = a[1]*b[2] - a[2]*b[1];
@@ -129,19 +142,6 @@ static inline void vec4_reflect(vec4 r, vec4 v, vec4 n)
 	int i;
 	for(i=0;i<4;++i)
 		r[i] = v[i] - p*n[i];
-}
-
-static inline float vec3_angle_between(vec3 a, vec3 b, vec3 up) {
-  vec3 n;
-  vec3_mul_cross(n, a, up);
-  float s = vec3_dot(b, n);
-
-  float angle = acos(vec3_dot(a, b) / (vec3_len(a) * vec3_len(b)));
-  if (s < 0) {
-    return angle;
-  } else {
-    return (2 * M_PI) - angle;
-  }
 }
 
 typedef vec4 mat4[4];

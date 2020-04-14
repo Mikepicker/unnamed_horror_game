@@ -1,6 +1,15 @@
 #include "game.h"
 
+static float rand_in_range(int min, int max) {
+  return (rand() % (max - min + 1)) + min;
+}
+
 void game_init(GLFWwindow* w) {
+  // seed random
+  time_t t;
+  srand((unsigned) time(&t));
+
+  // game camera
   game_camera.front[0] = 0.0f;
   game_camera.front[1] = 0.0f;
   game_camera.front[2] = -1.0f;
@@ -12,10 +21,14 @@ void game_init(GLFWwindow* w) {
   game_camera.pos[2] = 9.0f;
   game_camera.speed = 10.0f;
   
+  // window
   window = w;
+
+  // game loop
   delta_time = 0.0f;
   last_frame = 0.0f;
 
+  // render list
   game_render_list = render_list_new();
 
   // audio
@@ -59,10 +72,22 @@ void game_init(GLFWwindow* w) {
   strcpy(mat_wood.specular_map_path, "assets/textures/Wood_Grain_SPEC.png");
   mat_wood.texture_subdivision = 5;
 
+  // grass material
+  material mat_grass;
+  material_init(&mat_grass);
+  strcpy(mat_grass.name, "grass_mat");
+  strcpy(mat_grass.texture_path, "assets/textures/Grass_001_COLOR.jpg");
+  strcpy(mat_grass.normal_map_path, "assets/textures/Grass_001_NORM.jpg");
+  mat_grass.specular[0] = 1.0f;
+  mat_grass.specular[1] = 1.0f;
+  mat_grass.specular[2] = 1.0f;
+  mat_grass.reflectivity = 0;
+  mat_grass.texture_subdivision = 300;
+
   // ground
-  ground = factory_create_plane(80, 80);
+  ground = factory_create_plane(1000, 1000);
   ground->position[1] = -0.001;
-  ground->meshes[0].mat = mat_wood;
+  ground->meshes[0].mat = mat_grass;
   ground->receive_shadows = 1;
   object_set_center(ground);
   mesh_compute_tangent(&ground->meshes[0]);
@@ -100,18 +125,37 @@ void game_init(GLFWwindow* w) {
   character.o = importer_load("character");
   character.o->scale = 0.01f;
   character.o->receive_shadows = 1;
+  physics_compute_aabb(character.o);
+  character.run_speed = 4;
   character.dir[0] = 0;
   character.dir[1] = 0;
   character.dir[2] = 1;
-
-  vec3 z_axis = { 1, 0, 0 };
-  // quat_rotate(character->rotation, to_radians(-90), z_axis);
-  // character->position[1] += 4;
   vec3_zero(character.o->position);
   vec3_zero(target_pos);
   renderer_init_object(character.o);
   animator_play(character.o, "idle");
 
+  // load tree
+  tree_1 = importer_load("tree_1");
+  tree_1->receive_shadows = 1;
+
+  // spawn trees randomly
+  float tree_scale = 0.04;
+  int max = 30 * 1/tree_scale;
+  int min = -30 * 1/tree_scale;
+  for (int i = 0; i < MAX_TREES; i++) {
+    memcpy(&trees[i], tree_1, sizeof(object));
+    trees[i].scale = tree_scale;
+    trees[i].position[0] = rand_in_range(min, max);
+    trees[i].position[1] = 0;
+    trees[i].position[2] = rand_in_range(min, max);
+    float rot = rand_in_range(0, 180);
+    vec3 y_axis = { 0, 1, 0 };
+    quat_rotate(trees[i].rotation, to_radians(rot), y_axis);
+    renderer_init_object(&trees[i]);
+  }
+
+  // game state
   state = MENU;
 }
 
@@ -129,7 +173,7 @@ void game_update() {
   // lights
   // lights[0].position[1] = 10 + sinf(current_frame) * 5;
   lights[0].position[0] = game_camera.pos[0];
-  lights[0].position[1] = game_camera.pos[1] + 2.0f;
+  lights[0].position[1] = 15.0f;
   lights[0].position[2] = game_camera.pos[2];
 
   // character
@@ -140,13 +184,13 @@ void game_update() {
   vec3 dir, dist;
   vec3_sub(dist, target_pos, character.o->position);
 
-  if (vec3_len(dist) > 1) {
+  if (vec3_len(dist) > 2) {
     if (strcmp(character.o->current_anim->name, "idle") == 0)
-      animator_play(character.o, "walking");
+      animator_play(character.o, "run");
 
     // position
     vec3_norm(dir, dist);
-    vec3_scale(dir, dir, 2);
+    vec3_scale(dir, dir, character.run_speed);
     vec3_add(character.o->position, character.o->position, dir);
 
     // rotation
@@ -155,7 +199,7 @@ void game_update() {
     float angle = vec3_angle_between(front, dir, y_axis);
     quat_rotate(character.o->rotation, angle, y_axis);
   } else {
-    if (strcmp(character.o->current_anim->name, "walking") == 0)
+    if (strcmp(character.o->current_anim->name, "run") == 0)
       animator_play(character.o, "idle");
   }
 
@@ -192,6 +236,11 @@ void game_render() {
 
   // render character
   render_list_add(game_render_list, character.o);
+
+  // render nature
+  for (int i = 0; i < MAX_TREES; i++) {
+    render_list_add(game_render_list, &trees[i]);
+  }
 
   // render
   renderer_render_objects(game_render_list->objects, game_render_list->size, &lights, num_lights, &game_camera, NULL, &sky);

@@ -9,6 +9,7 @@
 #define GAME_HEIGHT 768
 
 #define MAX_CUBES 128
+#define MAX_TREES 10
 #define MAX_LIGHTS 128
 #define FOV 100
 
@@ -24,6 +25,7 @@ typedef struct {
 typedef struct {
   object* o;
   vec3 dir;
+  float run_speed;
 } entity;
 
 GLFWwindow* window;
@@ -57,6 +59,10 @@ vec3 target_pos;
 
 // materials
 static material mat_stone;
+
+// nature
+object trees[MAX_TREES];
+object* tree_1;
 
 void game_init(GLFWwindow* window);
 void game_start();

@@ -57,8 +57,10 @@ static int find_file_ext(const char* asset, const char* ext, char* out_path) {
 
   while ((de = readdir(dr)) != NULL) {
     if (strcmp(ext, get_filename_ext(de->d_name)) == 0) {
-      strcpy(out_path, dir);
-      strcat(out_path, de->d_name);
+      if (out_path != NULL) {
+        strcpy(out_path, dir);
+        strcat(out_path, de->d_name);
+      }
       closedir(dr);     
       return 1;
     }
@@ -289,6 +291,22 @@ static void import_mtl(const char* asset) {
       strcpy(current_mat->texture_path, tex_path);
       strcat(current_mat->texture_path, diffuse_path);
     }
+    // normal map path
+    else if (strstr(line, "map_Kn ") != NULL) {
+      // assets/[asset]/textures/[normal].png
+      char normal_path[256];
+      sscanf(line, "map_Kn %s", normal_path);
+      strcpy(current_mat->normal_map_path, tex_path);
+      strcat(current_mat->normal_map_path, normal_path);
+    }
+    // mask map path
+    else if (strstr(line, "map_d ") != NULL) {
+      // assets/[asset]/textures/[normal].png
+      char mask_path[256];
+      sscanf(line, "map_d %s", mask_path);
+      strcpy(current_mat->mask_map_path, tex_path);
+      strcat(current_mat->mask_map_path, mask_path);
+    }
     // diffuse
     else if (strstr(line, "Kd ") != NULL) {
       sscanf(line, "Kd %f %f %f\n", &current_mat->diffuse[0], &current_mat->diffuse[1], &current_mat->diffuse[2]);
@@ -297,13 +315,8 @@ static void import_mtl(const char* asset) {
     else if (strstr(line, "Ks ") != NULL) {
       sscanf(line, "Ks %f %f %f\n", &current_mat->specular[0], &current_mat->specular[1], &current_mat->specular[2]);
     }
-    // normal map path
-    else if (strstr(line, "map_Kn ") != NULL) {
-      // assets/[asset]/textures/[normal].png
-      char normal_path[256];
-      sscanf(line, "map_Kn %s", normal_path);
-      strcpy(current_mat->normal_map_path, tex_path);
-      strcat(current_mat->normal_map_path, normal_path);
+    else if (strstr(line, "r ") != NULL) {
+      sscanf(line, "r %f\n", &current_mat->reflectivity);
     }
   }
 
@@ -426,7 +439,8 @@ object* importer_load(const char* asset) {
   
   // import skl and anm
   skeleton* skel = NULL;
-  if (access("assets/character/character.skl", F_OK) != -1) {
+  has_skl_file = 0;
+  if (find_file_ext(asset, "skl", NULL)) {
     has_skl_file = 1;
     skel = import_skl(asset);
     import_animations(asset, skel);

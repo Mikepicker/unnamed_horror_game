@@ -4,7 +4,7 @@
 #include "engine.h"
 #include "data/object.h"
 
-#define RENDER_LIST_SIZE 128
+#define RENDER_LIST_SIZE 128 * 100
 
 typedef struct {
   object* objects[RENDER_LIST_SIZE];

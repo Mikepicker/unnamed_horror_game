@@ -15,6 +15,8 @@ uniform int has_skeleton;
 uniform mat4 lightSpaceMatrix;
 uniform mat4 M;
 
+out vec2 Uvs;
+
 mat4 boneTransform() {
   return aWeights.x * bone_world_matrices[int(aJointIds.x)]
        + aWeights.y * bone_world_matrices[int(aJointIds.y)]
@@ -24,5 +26,6 @@ mat4 boneTransform() {
 void main() {
   mat4 bt = has_skeleton == 1 ? boneTransform() : mat4(1.0);
   vec3 FragPos = vec3(M * bt * vec4(aPos, 1.0));
+  Uvs = aUvs.st;
   gl_Position = lightSpaceMatrix * vec4(FragPos, 1.0);
 }  

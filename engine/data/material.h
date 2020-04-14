@@ -8,8 +8,10 @@ typedef struct {
   char texture_path[256]; 
   char normal_map_path[256]; 
   char specular_map_path[256]; 
+  char mask_map_path[256];
   vec3 diffuse;
   vec3 specular;
+  float reflectivity;
   int texture_subdivision;
 } material;
 

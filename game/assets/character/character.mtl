@@ -1,8 +1,10 @@
-newmtl mutant_M
+newmtl Guard_03
 Ke 0.000000 0.000000 0.000000
-Ka 0.200000 0.200000 0.200000
-map_Kd Mutant_diffuse.png
-Ks 0.200000 0.200000 0.200000
-Ns 6.153846
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+map_Kd Guard_03__diffuse.png
+map_Ks Guard_03__specular.png
+Ns 6.311791
 d 1.000000
-map_Kn Mutant_normal.png
+r 0
+map_Kn Guard_03__normal.png

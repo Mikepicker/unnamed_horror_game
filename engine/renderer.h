@@ -31,6 +31,7 @@ float renderer_shadow_bias;
 int renderer_shadow_pcf_enabled;
 float renderer_shadow_near;
 float renderer_shadow_far;
+float renderer_shadow_size;
 
 int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow** out_window);
 void renderer_cleanup();

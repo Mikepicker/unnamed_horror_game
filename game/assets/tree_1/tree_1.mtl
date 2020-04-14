@@ -1,0 +1,27 @@
+# Blender MTL File: 'None'
+# Material Count: 2
+
+newmtl tree_mango_leaves_mat
+Ns 43.219304
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd tree_mangoLeaves_DIF.tga
+map_Ks tree_mangoLeaves_SPC.tga
+map_d tree_mangoLeaves_MSK.tga
+
+newmtl tree_mango_trunk_mat
+Ns 43.219304
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd tree_mangoBark_DIF.tga
+map_Ks tree_mangoBark_SPC.tga
