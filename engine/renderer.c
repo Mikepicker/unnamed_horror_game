@@ -104,7 +104,7 @@ int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow
   // init vars
   renderer_render_aabb = 0;
   renderer_shadow_near = 1.0f;
-  renderer_shadow_far = 100.0f;
+  renderer_shadow_far = 10.0f;
   renderer_debug_vao = 0;
   renderer_debug_enabled = 0;
   renderer_shadow_bias = 0.22f;
@@ -534,4 +534,45 @@ void renderer_render_objects(object* objects[], int objects_length, light* light
 
   // poll events
   glfwPollEvents();
+}
+
+ray renderer_raycast(camera* camera, float x, float y, float ray_len) {
+  int width, height;
+  glfwGetFramebufferSize(window, &width, &height);
+  float ratio = width / (float)height;
+
+  // normalised device coordinates [-1:1, -1:1, -1:1]
+  vec3 ray_nds = { (2*x)/width - 1, 1 - (2*y) / height, 1 };
+
+  // 4D homogeneous clip coordinates [-1:1, -1:1, -1:1, -1:1]
+  vec4 ray_clip = { ray_nds[0], ray_nds[1], -1, 1 };
+
+  // 4D eye (camera) coordinates [-x:x, -y:y, -z:z, -w:w]
+  mat4 p, p_inv;
+  mat4_perspective(p, to_radians(45.0f), ratio, 0.1f, 100.0f);
+  mat4_invert(p_inv, p);
+
+  vec4 ray_eye;
+  mat4_mul_vec4(ray_eye, p_inv, ray_clip);
+  ray_eye[2] = -1;
+  ray_eye[3] = 0;
+
+  // 4D world coordinates [-x:x, -y:y, -z:z, -w:w]
+  mat4 v, v_inv;
+  vec3 camera_dir;
+  vec3_add(camera_dir, camera->pos, camera->front);
+  mat4_look_at(v, camera->pos, camera_dir, camera->up);
+  mat4_invert(v_inv, v);
+  
+  vec4 ray_wor;
+  mat4_mul_vec4(ray_wor, v_inv, ray_eye);
+  vec4_norm(ray_wor, ray_wor);
+
+  // build ray
+  ray r;
+  vec3_copy(r.o, camera->pos);
+  vec3_copy(r.dir, ray_wor);
+  r.length = ray_len;
+
+  return r;
 }

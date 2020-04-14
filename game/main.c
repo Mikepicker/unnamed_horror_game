@@ -6,7 +6,7 @@ int main()
 {
   // Init context
   GLFWwindow* window;
-  if (renderer_init("Microdrag", GAME_WIDTH, GAME_HEIGHT, 0, &window) < 0) {
+  if (renderer_init("Ada", GAME_WIDTH, GAME_HEIGHT, 0, &window) < 0) {
     printf("Error initializing renderer!\n");
     return -1;
   }

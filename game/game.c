@@ -25,7 +25,7 @@ void game_init(GLFWwindow* w) {
   input_init();
 
   // init ui
-  ui_init();
+  // ui_init();
 
   // lights
   lights = malloc(MAX_LIGHTS * sizeof(light));
@@ -59,14 +59,14 @@ void game_init(GLFWwindow* w) {
   strcpy(mat_wood.specular_map_path, "assets/textures/Wood_Grain_SPEC.png");
   mat_wood.texture_subdivision = 5;
 
-  // plane
-  plane = factory_create_plane(80, 80);
-  plane->position[1] = -0.001;
-  plane->meshes[0].mat = mat_wood;
-  plane->receive_shadows = 1;
-  object_set_center(plane);
-  mesh_compute_tangent(&plane->meshes[0]);
-  renderer_init_object(plane);
+  // ground
+  ground = factory_create_plane(80, 80);
+  ground->position[1] = -0.001;
+  ground->meshes[0].mat = mat_wood;
+  ground->receive_shadows = 1;
+  object_set_center(ground);
+  mesh_compute_tangent(&ground->meshes[0]);
+  renderer_init_object(ground);
 
   // wall mat
   material_init(&mat_stone);
@@ -97,14 +97,20 @@ void game_init(GLFWwindow* w) {
   memcpy(select_cube, sample_cube.o, sizeof(*sample_cube.o));
 
   // load character
-  character = importer_load("character");
-  character->scale = 0.01f;
+  character.o = importer_load("character");
+  character.o->scale = 0.01f;
+  character.o->receive_shadows = 1;
+  character.dir[0] = 0;
+  character.dir[1] = 0;
+  character.dir[2] = 1;
 
   vec3 z_axis = { 1, 0, 0 };
   // quat_rotate(character->rotation, to_radians(-90), z_axis);
-  character->position[1] += 4;
-  renderer_init_object(character);
-  animator_play(character, "walking");
+  // character->position[1] += 4;
+  vec3_zero(character.o->position);
+  vec3_zero(target_pos);
+  renderer_init_object(character.o);
+  animator_play(character.o, "idle");
 
   state = MENU;
 }
@@ -120,18 +126,38 @@ void game_update() {
 
   input_update();
 
+  // lights
   // lights[0].position[1] = 10 + sinf(current_frame) * 5;
   lights[0].position[0] = game_camera.pos[0];
   lights[0].position[1] = game_camera.pos[1] + 2.0f;
   lights[0].position[2] = game_camera.pos[2];
-  // cube->position[1] = 4 + sinf(current_frame);
-  // microdrag.cars[0].obj->position[1] = 1.0f + sinf(2.0f * current_frame);
-  // microdrag.lights[0].position[0] =  24 * sinf(0.5f * current_frame);
 
-  vec3 y = { 0, 1, 0 };
-  animator_update(character, delta_time);
-  // quat_rotate(character->skel->current_frame.joint_rotations[30], current_frame, y);
-  // character->skel->current_frame->joint_positions[34][0] += 2;
+  // character
+  // character->position[2] += 2;
+  animator_update(character.o, delta_time);
+
+  // move character to target
+  vec3 dir, dist;
+  vec3_sub(dist, target_pos, character.o->position);
+
+  if (vec3_len(dist) > 1) {
+    if (strcmp(character.o->current_anim->name, "idle") == 0)
+      animator_play(character.o, "walking");
+
+    // position
+    vec3_norm(dir, dist);
+    vec3_scale(dir, dir, 2);
+    vec3_add(character.o->position, character.o->position, dir);
+
+    // rotation
+    vec3 front = { 0.0f, 0.0f, 1.0f };
+    vec3 y_axis = { 0, 1, 0 };
+    float angle = vec3_angle_between(front, dir, y_axis);
+    quat_rotate(character.o->rotation, angle, y_axis);
+  } else {
+    if (strcmp(character.o->current_anim->name, "walking") == 0)
+      animator_play(character.o, "idle");
+  }
 
   // audio
   audio_move_listener(game_camera.pos);
@@ -142,7 +168,7 @@ void game_render() {
   render_list_clear(game_render_list);
 
   // render_list_add(microdrag.game_render_list, sphere);
-  render_list_add(game_render_list, plane);
+  render_list_add(game_render_list, ground);
 
   // TODO: improve performance for alive lookup
   for (int i = 0; i < MAX_CUBES; i++) {
@@ -165,10 +191,10 @@ void game_render() {
   // render_list_add(game_render_list, select_cube);
 
   // render character
-  render_list_add(game_render_list, character);
+  render_list_add(game_render_list, character.o);
 
   // render
-  renderer_render_objects(game_render_list->objects, game_render_list->size, &lights, num_lights, &game_camera, ui_render, &sky);
+  renderer_render_objects(game_render_list->objects, game_render_list->size, &lights, num_lights, &game_camera, NULL, &sky);
 }
 
 void game_free() {
@@ -176,10 +202,10 @@ void game_free() {
   /* renderer_free_object(microdrag.cars[0].obj);
   audio_free_object(microdrag.cars[0].obj); */
   object_free(sample_cube.o);
-  object_free(plane);
+  object_free(ground);
   free(lights);
 
-  ui_free();
+  // ui_free();
   skybox_free(&sky);
 
   // cleanup engine modules

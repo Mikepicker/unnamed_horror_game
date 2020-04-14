@@ -131,6 +131,19 @@ static inline void vec4_reflect(vec4 r, vec4 v, vec4 n)
 		r[i] = v[i] - p*n[i];
 }
 
+static inline float vec3_angle_between(vec3 a, vec3 b, vec3 up) {
+  vec3 n;
+  vec3_mul_cross(n, a, up);
+  float s = vec3_dot(b, n);
+
+  float angle = acos(vec3_dot(a, b) / (vec3_len(a) * vec3_len(b)));
+  if (s < 0) {
+    return angle;
+  } else {
+    return (2 * M_PI) - angle;
+  }
+}
+
 typedef vec4 mat4[4];
 static inline void mat4_identity(mat4 M)
 {

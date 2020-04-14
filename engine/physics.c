@@ -194,3 +194,19 @@ mesh* physics_ray_hit_mesh(const ray ray, const object* o) {
   }
   return NULL;
 }
+
+int physics_ray_hit_plane(const ray r, const plane p, vec3 out_point) {
+  float denom = vec3_dot(p.n, r.dir);
+  if (fabs(denom) > 1e-6) {
+    vec3 tmp;
+    vec3_sub(tmp, p.p, r.o);
+    float t = vec3_dot(tmp, p.n) / denom;
+    if (t >= 0 && t <= r.length) {
+      vec3_scale(out_point, r.dir, t);
+      vec3_add(out_point, out_point, r.o);
+      return 1;
+    }
+  }
+  
+  return 0;
+}

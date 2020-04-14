@@ -51,10 +51,10 @@ void input_key_callback(GLFWwindow* window, int key, int scancode, int action, i
     place_cube();
 
   if (key == GLFW_KEY_V && action == GLFW_PRESS) {
-    if (strcmp(character->current_anim->name, "walking") == 0) {
-      animator_play(character, "attack");
+    if (strcmp(character.o->current_anim->name, "walking") == 0) {
+      animator_play(character.o, "attack");
     } else {
-      animator_play(character, "walking");
+      animator_play(character.o, "walking");
     }
   }
 
@@ -108,7 +108,26 @@ void input_mouse_callback(GLFWwindow* window, double x_pos, double y_pos)
   //debug_print_vec3(microdrag.game_camera.front);
 }
 
-void input_mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {}
+void input_mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+  if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+    double x, y;
+    glfwGetCursorPos(window, &x, &y);
+
+    ray r = renderer_raycast(&game_camera, x, y, 10000);
+
+    plane p;
+    vec3_zero(p.p);
+    p.n[0] = 0; p.n[1] = 1; p.n[2] = 0;
+
+    vec3 intersection;
+    vec3 test = { 0, -1, 0 };
+    // vec3_copy(r.dir, test);
+    if (physics_ray_hit_plane(r, p, intersection)) {
+      vec3_scale(target_pos, intersection, 1/character.o->scale);
+      // object_set_position(character, intersection);
+    }
+  }
+}
 
 void input_joystick_callback(int joy, int event) {
   if (event == GLFW_CONNECTED) {

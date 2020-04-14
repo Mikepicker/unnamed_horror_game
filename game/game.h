@@ -5,8 +5,8 @@
 #include "ui.h"
 #include "input.h"
 
-#define GAME_WIDTH 800
-#define GAME_HEIGHT 600
+#define GAME_WIDTH 1024
+#define GAME_HEIGHT 768
 
 #define MAX_CUBES 128
 #define MAX_LIGHTS 128
@@ -19,6 +19,12 @@ typedef struct {
   object* o;
   int alive;
 } cube;
+
+// entity
+typedef struct {
+  object* o;
+  vec3 dir;
+} entity;
 
 GLFWwindow* window;
 camera game_camera;
@@ -34,8 +40,8 @@ enum game_state state;
 // skybox
 skybox sky;
 
-// plane
-object* plane;
+// ground
+object* ground;
 
 // cubes
 cube sample_cube;
@@ -46,7 +52,8 @@ object* select_cube;
 vec3 place_target;
 
 // character
-object* character;
+entity character;
+vec3 target_pos;
 
 // materials
 static material mat_stone;

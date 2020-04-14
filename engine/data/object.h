@@ -46,6 +46,7 @@ void object_get_center(const object* o, vec3* out_center);
 void object_set_center(object* o);
 void object_vec3_to_object_space(const object* o, vec3 v);
 aabb object_aabb_to_object_space(const object* o, aabb box);
+void object_set_position(object* o, vec3 pos);
 void object_free(object* o);
 
 #endif

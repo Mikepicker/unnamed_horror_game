@@ -40,4 +40,6 @@ void renderer_init_object(object* o);
 void renderer_free_object(object* o);
 void renderer_render_objects(object* objects[], int objects_length, light* lights[], int lights_length, camera* camera, void (*ui_render_callback)(void), skybox* sky);
 
+ray renderer_raycast(camera* camera, float x, float y, float ray_len);
+
 #endif

@@ -122,6 +122,10 @@ aabb object_aabb_to_object_space(const object* o, aabb box) {
   return res;
 }
 
+void object_set_position(object* o, vec3 pos) {
+  vec3_scale(o->position, pos, 1/o->scale);
+}
+
 void object_free(object* o) {
   if (o->num_meshes > 0) {
     free(o->meshes[0].vertices);
