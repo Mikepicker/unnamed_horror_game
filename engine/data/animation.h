@@ -15,6 +15,8 @@ typedef struct {
   float frame_time;
   float frame_speed;
   int duration;
+  int loop;
+  int finished;
 } animation;
 
 animation* animation_create(const char* name);

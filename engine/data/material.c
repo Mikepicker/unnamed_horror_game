@@ -5,6 +5,7 @@ void material_init(material* mat) {
   strcpy(mat->texture_path, "\0");
   strcpy(mat->normal_map_path, "\0");
   strcpy(mat->specular_map_path, "\0");
+  strcpy(mat->mask_map_path, "\0");
   mat->diffuse[0] = 1.0f;
   mat->diffuse[1] = 1.0f;
   mat->diffuse[2] = 1.0f;

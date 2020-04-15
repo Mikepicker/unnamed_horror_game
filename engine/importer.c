@@ -299,6 +299,14 @@ static void import_mtl(const char* asset) {
       strcpy(current_mat->normal_map_path, tex_path);
       strcat(current_mat->normal_map_path, normal_path);
     }
+    // specular map path
+    else if (strstr(line, "map_Ks ") != NULL) {
+      // assets/[asset]/textures/[specular].png
+      char specular_path[256];
+      sscanf(line, "map_Ks %s", specular_path);
+      strcpy(current_mat->specular_map_path, tex_path);
+      strcat(current_mat->specular_map_path, specular_path);
+    }
     // mask map path
     else if (strstr(line, "map_d ") != NULL) {
       // assets/[asset]/textures/[normal].png
@@ -553,8 +561,19 @@ object* importer_load(const char* asset) {
 
   object* o = object_create(NULL, 1.0f, meshes, meshes_count, 1, skel);
 
-  for (int i = 0; i < animation_count; i++)
+  temp_vertices = NULL;
+  temp_uvs = NULL;
+  temp_normals = NULL;
+  indices = NULL;
+  vertices = NULL;
+  meshes = NULL;
+  vweights = NULL;
+
+  for (int i = 0; i < animation_count; i++) {
     object_add_animation(o, animations[i]);
+    animations[i] = NULL;
+  }
+  animation_count = 0;
 
   return o;
 }

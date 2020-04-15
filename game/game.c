@@ -1,7 +1,8 @@
 #include "game.h"
 
-static float rand_in_range(int min, int max) {
-  return (rand() % (max - min + 1)) + min;
+static float rand_in_range(float min, float max) {
+  // return (rand() % (max - min + 1)) + min;
+  return (fmod(rand(), (max - min + 1))) + min;
 }
 
 void game_init(GLFWwindow* w) {
@@ -122,6 +123,7 @@ void game_init(GLFWwindow* w) {
   memcpy(select_cube, sample_cube.o, sizeof(*sample_cube.o));
 
   // load character
+  character.state = IDLE;
   character.o = importer_load("character");
   character.o->scale = 0.01f;
   character.o->receive_shadows = 1;
@@ -133,14 +135,30 @@ void game_init(GLFWwindow* w) {
   vec3_zero(character.o->position);
   vec3_zero(target_pos);
   renderer_init_object(character.o);
-  animator_play(character.o, "idle");
+  animator_play(character.o, "idle", 1);
+
+  // load enemy
+  enemy.state = IDLE;
+  enemy.o = importer_load("character");
+  enemy.o->scale = 0.01f;
+  enemy.o->receive_shadows = 1;
+  enemy.run_speed = 4;
+  enemy.dir[0] = 0;
+  enemy.dir[1] = 0;
+  enemy.dir[2] = 1;
+  enemy.o->position[0] = 1000;
+  enemy.o->position[1] = 0;
+  enemy.o->position[2] = 1000;
+  renderer_init_object(enemy.o);
+  animator_play(enemy.o, "idle", 1);
 
   // load tree
-  tree_1 = importer_load("tree_1");
-  tree_1->receive_shadows = 1;
+  tree_1 = importer_load("tree_2");
+  tree_1->receive_shadows = 0;
+  renderer_init_object(tree_1);
 
   // spawn trees randomly
-  float tree_scale = 0.04;
+  float tree_scale = 2;
   int max = 30 * 1/tree_scale;
   int min = -30 * 1/tree_scale;
   for (int i = 0; i < MAX_TREES; i++) {
@@ -152,7 +170,25 @@ void game_init(GLFWwindow* w) {
     float rot = rand_in_range(0, 180);
     vec3 y_axis = { 0, 1, 0 };
     quat_rotate(trees[i].rotation, to_radians(rot), y_axis);
-    renderer_init_object(&trees[i]);
+  }
+
+  // load rock
+  rock = importer_load("rock");
+  rock->receive_shadows = 0;
+  renderer_init_object(rock);
+
+  for (int i = 0; i < MAX_ROCKS; i++) {
+    memcpy(&rocks[i], rock, sizeof(object));
+    rocks[i].scale = rand_in_range(0.5, 1);
+    rocks[i].position[0] = rand_in_range(min, max);
+    rocks[i].position[1] = rand_in_range(-1, 0.5);
+    rocks[i].position[2] = rand_in_range(min, max);
+    float rot = rand_in_range(0, 180);
+    vec3 y_axis = { 0, 1, 0 };
+    quat_rotate(rocks[i].rotation, to_radians(rot), y_axis);
+    rot = rand_in_range(0, 180);
+    vec3 z_axis = { 0, 0, 1 };
+    quat_rotate(rocks[i].rotation, to_radians(rot), z_axis);
   }
 
   // game state
@@ -161,6 +197,75 @@ void game_init(GLFWwindow* w) {
 
 void game_start() {
 
+}
+
+void update_character() {
+  // update animation
+  animator_update(character.o, delta_time);
+
+  enum entity_state state = character.state;
+
+  // attacking
+  if (state == ATTACK) {
+    int key = animator_current_keyframe(character.o);
+    if (enemy.state != DIE && key > 18 && key < 22) {
+      animator_play(enemy.o, "die", 0);
+      enemy.state = DIE;
+    } else if (animator_finished(character.o)) {
+      animator_play(character.o, "idle", 1);
+      character.state = IDLE;
+    }
+  }
+
+  if (state == IDLE) {
+    vec3 dist_to_enemy;
+    vec3_sub(dist_to_enemy, character.o->position, enemy.o->position);
+    if (enemy.state != DIE && vec3_len(dist_to_enemy) < 2 * 1/enemy.o->scale) {
+      animator_play(character.o, "attack", 0);
+      character.state = ATTACK;
+      return;
+    }
+  }
+
+  // move character to target
+  if (state == MOVE) {
+    vec3 dir, dist;
+    vec3_sub(dist, target_pos, character.o->position);
+    if (vec3_len(dist) > 2) {
+      if (strcmp(character.o->current_anim->name, "run") != 0)
+        animator_play(character.o, "run", 1);
+
+      // position
+      vec3_norm(dir, dist);
+      vec3_scale(dir, dir, character.run_speed);
+      vec3_add(character.o->position, character.o->position, dir);
+
+      // rotation
+      vec3 front = { 0.0f, 0.0f, 1.0f };
+      vec3 y_axis = { 0, 1, 0 };
+      float angle = vec3_angle_between(front, dir, y_axis);
+      quat_rotate(character.o->rotation, angle, y_axis);
+    } else {
+      animator_play(character.o, "idle", 1);
+      character.state = IDLE;
+    }
+  }
+
+}
+
+void update_enemy() {
+  animator_update(enemy.o, delta_time);
+  
+  if (enemy.state != DIE) {
+    vec3 dir;
+    vec3_sub(dir, character.o->position, enemy.o->position);
+    vec3_norm(dir, dir);
+
+    vec3 front = { 0.0f, 0.0f, 1.0f };
+    vec3 y_axis = { 0, 1, 0 };
+    float angle = vec3_angle_between(front, dir, y_axis);
+    quat_rotate(enemy.o->rotation, angle, y_axis);
+  }
 }
 
 void game_update() {
@@ -177,31 +282,10 @@ void game_update() {
   lights[0].position[2] = game_camera.pos[2];
 
   // character
-  // character->position[2] += 2;
-  animator_update(character.o, delta_time);
+  update_character();
 
-  // move character to target
-  vec3 dir, dist;
-  vec3_sub(dist, target_pos, character.o->position);
-
-  if (vec3_len(dist) > 2) {
-    if (strcmp(character.o->current_anim->name, "idle") == 0)
-      animator_play(character.o, "run");
-
-    // position
-    vec3_norm(dir, dist);
-    vec3_scale(dir, dir, character.run_speed);
-    vec3_add(character.o->position, character.o->position, dir);
-
-    // rotation
-    vec3 front = { 0.0f, 0.0f, 1.0f };
-    vec3 y_axis = { 0, 1, 0 };
-    float angle = vec3_angle_between(front, dir, y_axis);
-    quat_rotate(character.o->rotation, angle, y_axis);
-  } else {
-    if (strcmp(character.o->current_anim->name, "run") == 0)
-      animator_play(character.o, "idle");
-  }
+  // enemy
+  update_enemy();
 
   // audio
   audio_move_listener(game_camera.pos);
@@ -237,9 +321,16 @@ void game_render() {
   // render character
   render_list_add(game_render_list, character.o);
 
+  // render enemy
+  render_list_add(game_render_list, enemy.o);
+
   // render nature
   for (int i = 0; i < MAX_TREES; i++) {
     render_list_add(game_render_list, &trees[i]);
+  }
+
+  for (int i = 0; i < MAX_ROCKS; i++) {
+    render_list_add(game_render_list, &rocks[i]);
   }
 
   // render

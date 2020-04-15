@@ -9,6 +9,8 @@ animation* animation_create(const char* name) {
   a->frame_count = 0;
   a->frame_time = 0;
   a->frame_speed = 1.0/30.0;
+  a->loop = 1;
+  a->finished = 0;
   
   for (int i = 0; i < MAX_KEYFRAMES; i++) {
     a->frames[i].joint_count = 0;  
@@ -42,7 +44,10 @@ void animation_sample_to(animation* a, float dt, frame* out) {
   }
 
   a->frame_time += dt;
-  a->frame_time = fmodf(a->frame_time, a->frame_speed * (a->frame_count-1));
+  if (a->loop)
+    a->frame_time = fmodf(a->frame_time, a->frame_speed * (a->frame_count-1));
+  else
+    a->finished = (a->frame_time / a->frame_speed) > (a->frame_count-1);
 
   frame* frame0 = animation_frame(a, (a->frame_time / a->frame_speed) + 0);
   frame* frame1 = animation_frame(a, (a->frame_time / a->frame_speed) + 1);

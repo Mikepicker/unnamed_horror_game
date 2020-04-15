@@ -10,6 +10,7 @@
 
 #define MAX_CUBES 128
 #define MAX_TREES 10
+#define MAX_ROCKS 10
 #define MAX_LIGHTS 128
 #define FOV 100
 
@@ -22,8 +23,10 @@ typedef struct {
 } cube;
 
 // entity
+enum entity_state { IDLE, MOVE, ATTACK, DIE };
 typedef struct {
   object* o;
+  enum entity_state state;
   vec3 dir;
   float run_speed;
 } entity;
@@ -57,12 +60,17 @@ vec3 place_target;
 entity character;
 vec3 target_pos;
 
+// sample enemy
+entity enemy;
+
 // materials
 static material mat_stone;
 
 // nature
 object trees[MAX_TREES];
 object* tree_1;
+object rocks[MAX_ROCKS];
+object* rock;
 
 void game_init(GLFWwindow* window);
 void game_start();

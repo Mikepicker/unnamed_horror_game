@@ -9,6 +9,7 @@ void set_opengl_state() {
 }
 
 unsigned int load_image(char* filename) {
+  printf("[renderer] loading %s\n", filename);
   GLuint texture = -1;
 
   if (strlen(filename) == 0) {
@@ -18,8 +19,8 @@ unsigned int load_image(char* filename) {
   glGenTextures(1, &texture);
   glBindTexture(GL_TEXTURE_2D, texture);
   // set the texture wrapping parameters
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);	// set texture wrapping to GL_REPEAT (default wrapping method)
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   // set texture filtering parameters
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -225,13 +226,9 @@ void renderer_init_object(object* o) {
     glBindVertexArray(0);
 
     // texture
-    printf("[renderer] loading diffuse map %s\n", mesh->mat.texture_path);
     mesh->texture_id = load_image(mesh->mat.texture_path);
-    printf("[renderer] loading normal map\n");
     mesh->normal_map_id = load_image(mesh->mat.normal_map_path);
-    printf("[renderer] loading specular map\n");
     mesh->specular_map_id = load_image(mesh->mat.specular_map_path);
-    printf("[renderer] loading mask map\n");
     mesh->mask_map_id = load_image(mesh->mat.mask_map_path);
 
     // add_aabb(o);

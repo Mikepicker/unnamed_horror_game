@@ -112,11 +112,9 @@ void input_mouse_button_callback(GLFWwindow* window, int button, int action, int
     p.n[0] = 0; p.n[1] = 1; p.n[2] = 0;
 
     vec3 intersection;
-    vec3 test = { 0, -1, 0 };
-    // vec3_copy(r.dir, test);
     if (physics_ray_hit_plane(r, p, intersection)) {
       vec3_scale(target_pos, intersection, 1/character.o->scale);
-      // object_set_position(character, intersection);
+      character.state = MOVE;
     }
   }
 }
