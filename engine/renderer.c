@@ -1,15 +1,17 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "renderer.h"
 
+#define SHADOW_WIDTH 1024 * 2
+#define SHADOW_HEIGHT 1024 * 2
+
 void set_opengl_state() {
   glEnable(GL_DEPTH_TEST);
-  glEnable(GL_MULTISAMPLE);
+  // glEnable(GL_MULTISAMPLE);
   glEnable(GL_CULL_FACE);
   // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 }
 
 unsigned int load_image(char* filename) {
-  printf("[renderer] loading %s\n", filename);
   GLuint texture = -1;
 
   if (strlen(filename) == 0) {
@@ -77,6 +79,50 @@ static void init_depth_fbo() {
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+static void init_g_buffer(int width, int height) {
+  // configure g-buffer framebuffer
+  glGenFramebuffers(1, &renderer_g_buffer);
+  glBindFramebuffer(GL_FRAMEBUFFER, renderer_g_buffer);
+  
+  // position color buffer
+  glGenTextures(1, &renderer_g_position);
+  glBindTexture(GL_TEXTURE_2D, renderer_g_position);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, renderer_g_position, 0);
+  // normal color buffer
+  glGenTextures(1, &renderer_g_normal);
+  glBindTexture(GL_TEXTURE_2D, renderer_g_normal);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, renderer_g_normal, 0);
+  // color + specular color buffer
+  glGenTextures(1, &renderer_g_albedo_spec);
+  glBindTexture(GL_TEXTURE_2D, renderer_g_albedo_spec);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, renderer_g_albedo_spec, 0);
+  // tell OpenGL which color attachments we'll use (of this framebuffer) for rendering 
+  unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+  glDrawBuffers(3, attachments);
+
+  unsigned int rboDepth;
+  glGenRenderbuffers(1, &rboDepth);
+  glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
+  // finally check if framebuffer is complete
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    printf("[renderer] framebuffer not complete\n");
+  
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow** out_window) {
   glfwInit();
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -102,12 +148,15 @@ int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow
     return -1;
   }
 
+  // init gbuffer
+  init_g_buffer(width, height);
+
   // init vars
   renderer_render_aabb = 0;
   renderer_shadow_near = 1.0f;
   renderer_shadow_far = 40.0f;
   renderer_shadow_size = 100.0f;
-  renderer_debug_vao = 0;
+  renderer_vao = 0;
   renderer_debug_enabled = 0;
   renderer_shadow_bias = 0.22f;
   renderer_shadow_pcf_enabled = 1;
@@ -129,6 +178,8 @@ void renderer_cleanup() {
 }
 
 void renderer_recompile_shader() {
+  shader_compile("../engine/shaders/geometry.vs", "../engine/shaders/geometry.fs", &renderer_geometry_shader);
+  shader_compile("../engine/shaders/lighting.vs", "../engine/shaders/lighting.fs", &renderer_lighting_shader);
   shader_compile("../engine/shaders/toon.vs", "../engine/shaders/toon.fs", &renderer_main_shader);
   shader_compile("../engine/shaders/shadow.vs", "../engine/shaders/shadow.fs", &renderer_shadow_shader);
   shader_compile("../engine/shaders/debug.vs", "../engine/shaders/debug.fs", &renderer_debug_shader);
@@ -230,8 +281,6 @@ void renderer_init_object(object* o) {
     mesh->normal_map_id = load_image(mesh->mat.normal_map_path);
     mesh->specular_map_id = load_image(mesh->mat.specular_map_path);
     mesh->mask_map_id = load_image(mesh->mat.mask_map_path);
-
-    // add_aabb(o);
   }
 }
 
@@ -308,10 +357,10 @@ static void render_objects(object *objects[], int objects_length, GLuint shader_
 
     // handle animated objects
     if (o->skel != NULL) {
-      glUniformMatrix4fv(glGetUniformLocation(shader_id, "bone_world_matrices"), o->skel->joint_count, GL_FALSE, (const GLfloat*) o->skel->current_frame.transforms);
-      glUniform1i(glGetUniformLocation(shader_id, "has_skeleton"), 1);
+      glUniformMatrix4fv(glGetUniformLocation(shader_id, "boneTransforms"), o->skel->joint_count, GL_FALSE, (const GLfloat*) o->skel->current_frame.transforms);
+      glUniform1i(glGetUniformLocation(shader_id, "hasSkeleton"), 1);
     } else {
-      glUniform1i(glGetUniformLocation(shader_id, "has_skeleton"), 0);
+      glUniform1i(glGetUniformLocation(shader_id, "hasSkeleton"), 0);
     }
     
     // render params
@@ -325,12 +374,12 @@ static void render_objects(object *objects[], int objects_length, GLuint shader_
 
       // pass material
       glUniform3fv(glGetUniformLocation(shader_id, "material.diffuse"), 1, mesh->mat.diffuse);
-      glUniform3fv(glGetUniformLocation(shader_id, "material.specular"), 1, mesh->mat.specular);
+      glUniform1f(glGetUniformLocation(shader_id, "material.specular"), mesh->mat.specular);
       glUniform1f(glGetUniformLocation(shader_id, "material.reflectivity"), mesh->mat.reflectivity);
 
       // bind texture
       if (strlen(mesh->mat.texture_path) > 0) {
-        glUniform1i(glGetUniformLocation(shader_id, "texture1"), 1);
+        glUniform1i(glGetUniformLocation(shader_id, "texture_diffuse"), 1);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, mesh->texture_id);
         glUniform1i(glGetUniformLocation(shader_id, "hasTexture"), 1);
@@ -341,7 +390,7 @@ static void render_objects(object *objects[], int objects_length, GLuint shader_
 
       // bind normal map
       if (strlen(mesh->mat.normal_map_path) > 0) {
-        glUniform1i(glGetUniformLocation(shader_id, "normalMap"), 2);
+        glUniform1i(glGetUniformLocation(shader_id, "texture_normal"), 2);
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, mesh->normal_map_id);
         glUniform1i(glGetUniformLocation(shader_id, "hasNormalMap"), 1);
@@ -351,7 +400,7 @@ static void render_objects(object *objects[], int objects_length, GLuint shader_
 
       // bind specular map
       if (strlen(mesh->mat.specular_map_path) > 0) {
-        glUniform1i(glGetUniformLocation(shader_id, "specularMap"), 3);
+        glUniform1i(glGetUniformLocation(shader_id, "texture_specular"), 3);
         glActiveTexture(GL_TEXTURE3);
         glBindTexture(GL_TEXTURE_2D, mesh->specular_map_id);
         glUniform1i(glGetUniformLocation(shader_id, "hasSpecularMap"), 1);
@@ -361,7 +410,7 @@ static void render_objects(object *objects[], int objects_length, GLuint shader_
 
       // bind mask map
       if (strlen(mesh->mat.mask_map_path) > 0) {
-        glUniform1i(glGetUniformLocation(shader_id, "maskMap"), 4);
+        glUniform1i(glGetUniformLocation(shader_id, "texture_mask"), 4);
         glActiveTexture(GL_TEXTURE4);
         glBindTexture(GL_TEXTURE_2D, mesh->mask_map_id);
         glUniform1i(glGetUniformLocation(shader_id, "hasMaskMap"), 1);
@@ -379,8 +428,8 @@ static void render_objects(object *objects[], int objects_length, GLuint shader_
   }
 }
 
-static void render_debug_quad() {
-  if (renderer_debug_vao == 0) {
+static void render_quad() {
+  if (renderer_vao == 0) {
     float quadVertices[] = {
       // positions        // texture Coords
       -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
@@ -389,17 +438,17 @@ static void render_debug_quad() {
       1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
     };
     // setup plane VAO
-    glGenVertexArrays(1, &renderer_debug_vao);
-    glGenBuffers(1, &renderer_debug_vbo);
-    glBindVertexArray(renderer_debug_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, renderer_debug_vbo);
+    glGenVertexArrays(1, &renderer_vao);
+    glGenBuffers(1, &renderer_vbo);
+    glBindVertexArray(renderer_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, renderer_vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
   }
-  glBindVertexArray(renderer_debug_vao);
+  glBindVertexArray(renderer_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
   glBindVertexArray(0);
 }
@@ -441,41 +490,17 @@ void renderer_render_objects(object* objects[], int objects_length, light* light
   //glCullFace(GL_BACK);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-  /*-----------------------------------------------------------------*/
-  /*------------------------------scene------------------------------*/
-  /*-----------------------------------------------------------------*/
-  glUseProgram(renderer_main_shader);
+  /*-------------------------------------------------------------------------*/
+  /*------------------------------geometry pass------------------------------*/
+  /*-------------------------------------------------------------------------*/
+  // 1. geometry pass: render scene's geometry/color data into gbuffer
+  glBindFramebuffer(GL_FRAMEBUFFER, renderer_g_buffer);
+  glUseProgram(renderer_geometry_shader);
+
   ratio = width / (float)height;
   glViewport(0, 0, width, height);
   glClearColor(183.0f / 255.0f, 220.0f / 255.0f, 244.0f / 255.0f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-  // camera position
-  GLint uniform_camera_pos = glGetUniformLocation(renderer_main_shader, "cameraPos");
-  glUniform3fv(uniform_camera_pos, 1, (const GLfloat*) camera->pos);
-
-  // process lights
-  glUniform1i(glGetUniformLocation(renderer_main_shader, "lightsNr"), lights_length);
-  for (int i = 0; i < lights_length; i++) {
-    char uniform_light_pos[256];
-    sprintf(uniform_light_pos, "lightsPos[%d]", i);
-    char uniform_light_color[256];
-    sprintf(uniform_light_color, "lightsColors[%d]", i);
-    glUniform3fv(glGetUniformLocation(renderer_main_shader, uniform_light_pos), 1, (const GLfloat*) lights[i]->position);
-    glUniform3fv(glGetUniformLocation(renderer_main_shader, uniform_light_color), 1, (const GLfloat*) lights[i]->color);
-  }
-
-  // shadow map to shader
-  glUniform1i(glGetUniformLocation(renderer_main_shader, "shadowMap"), 0);
-  glUniform1f(glGetUniformLocation(renderer_main_shader, "shadowBias"), renderer_shadow_bias);
-  glUniform1i(glGetUniformLocation(renderer_main_shader, "shadowPCFEnabled"), renderer_shadow_pcf_enabled);
-
-  // skybox to shader
-  if (sky) {
-    glUniform1i(glGetUniformLocation(renderer_main_shader, "skybox"), 4);
-    glActiveTexture(GL_TEXTURE4);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, sky->texture_id);
-  }
 
   // compute mvp matrix
   mat4 v, p;
@@ -485,22 +510,77 @@ void renderer_render_objects(object* objects[], int objects_length, light* light
   mat4_perspective(p, to_radians(45.0f), ratio, 0.1f, 100.0f);
 
   // pass mvp to shader
-  glUniformMatrix4fv(glGetUniformLocation(renderer_main_shader, "V"), 1, GL_FALSE, (const GLfloat*) v);
-  glUniformMatrix4fv(glGetUniformLocation(renderer_main_shader, "P"), 1, GL_FALSE, (const GLfloat*) p);
-
-  // pass light-space matrix to shader
-  glUniformMatrix4fv(glGetUniformLocation(renderer_main_shader, "lightSpaceMatrix"), 1, GL_FALSE, (const GLfloat*) light_space);
+  glUniformMatrix4fv(glGetUniformLocation(renderer_geometry_shader, "V"), 1, GL_FALSE, (const GLfloat*) v);
+  glUniformMatrix4fv(glGetUniformLocation(renderer_geometry_shader, "P"), 1, GL_FALSE, (const GLfloat*) p);
 
   // pass time to shader
-  glUniform1f(glGetUniformLocation(renderer_main_shader, "time"), (float)glfwGetTime());
+  glUniform1f(glGetUniformLocation(renderer_geometry_shader, "time"), (float)glfwGetTime());
+
+  render_objects(objects, objects_length, renderer_geometry_shader);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  /*-------------------------------------------------------------------------*/
+  /*------------------------------lighting pass------------------------------*/
+  /*-------------------------------------------------------------------------*/
+  // 2. lighting pass: calculate lighting by iterating over a screen filled quad pixel-by-pixel using gbuffer
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  glUseProgram(renderer_lighting_shader);
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "gPosition"), 0);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, renderer_g_position);
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "gNormal"), 1);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, renderer_g_normal);
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "gAlbedoSpec"), 2);
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, renderer_g_albedo_spec);
+
+  // camera position
+  GLint uniform_camera_pos = glGetUniformLocation(renderer_lighting_shader, "cameraPos");
+  glUniform3fv(uniform_camera_pos, 1, (const GLfloat*) camera->pos);
+
+  // lights
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "lightsNr"), lights_length);
+  for (int i = 0; i < lights_length; i++) {
+    char uniform_light_pos[256];
+    sprintf(uniform_light_pos, "lightsPos[%d]", i);
+    char uniform_light_color[256];
+    sprintf(uniform_light_color, "lightsColors[%d]", i);
+    glUniform3fv(glGetUniformLocation(renderer_lighting_shader, uniform_light_pos), 1, (const GLfloat*) lights[i]->position);
+    glUniform3fv(glGetUniformLocation(renderer_lighting_shader, uniform_light_color), 1, (const GLfloat*) lights[i]->color);
+  }
+
+  // shadow map to shader
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "shadowMap"), 3);
+  glUniform1f(glGetUniformLocation(renderer_lighting_shader, "shadowBias"), renderer_shadow_bias);
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "shadowPCFEnabled"), renderer_shadow_pcf_enabled);
 
   // pass depth map
-  glActiveTexture(GL_TEXTURE0);
+  glActiveTexture(GL_TEXTURE3);
   glBindTexture(GL_TEXTURE_2D, renderer_depth_map);
 
-  // process objects
-  render_objects(objects, objects_length, renderer_main_shader);
+  // skybox to shader
+  if (sky) {
+    glUniform1i(glGetUniformLocation(renderer_lighting_shader, "skybox"), 4);
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, sky->texture_id);
+  }
 
+  // pass light-space matrix to shader
+  glUniformMatrix4fv(glGetUniformLocation(renderer_lighting_shader, "lightSpaceMatrix"), 1, GL_FALSE, (const GLfloat*) light_space);
+
+  // pass time to shader
+  glUniform1f(glGetUniformLocation(renderer_lighting_shader, "time"), (float)glfwGetTime());
+
+  render_quad();
+  /*----------------------------------------------------------------------------------------------------*/
+  /*-----------------------------blit gbuffer depth to default framebuffer------------------------------*/
+  /*----------------------------------------------------------------------------------------------------*/
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, renderer_g_buffer);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // write to default framebuffer
+  glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
   /*-----------------------------------------------------------------*/
   /*-----------------------------skybox------------------------------*/
   /*-----------------------------------------------------------------*/
@@ -532,7 +612,7 @@ void renderer_render_objects(object* objects[], int objects_length, light* light
   glUniform1i(glGetUniformLocation(renderer_debug_shader, "depthMap"), 0);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, renderer_depth_map);
-  if (renderer_debug_enabled) render_debug_quad();
+  if (renderer_debug_enabled) render_quad();
 
   // ui callback
   if (ui_render_callback != NULL) {

@@ -10,11 +10,10 @@
 #include "data/ray.h"
 #include "data/frame.h"
 
-#define SHADOW_WIDTH 1024 * 4
-#define SHADOW_HEIGHT 1024 * 4
-
 GLFWwindow* window;
 
+GLuint renderer_geometry_shader;
+GLuint renderer_lighting_shader;
 GLuint renderer_main_shader;
 GLuint renderer_shadow_shader;
 GLuint renderer_debug_shader;
@@ -22,8 +21,14 @@ GLuint renderer_skybox_shader;
 
 GLuint renderer_depth_fbo;
 GLuint renderer_depth_map;
-GLuint renderer_debug_vao;
-GLuint renderer_debug_vbo;
+GLuint renderer_vao;
+GLuint renderer_vbo;
+
+// deferred rendering
+unsigned int renderer_g_buffer;
+unsigned int renderer_g_position;
+unsigned int renderer_g_normal;
+unsigned int renderer_g_albedo_spec;
 
 int renderer_debug_enabled;
 int renderer_render_aabb;

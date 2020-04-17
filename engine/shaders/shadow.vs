@@ -9,8 +9,8 @@ layout (location = 3) in vec3 aTangent;
 layout (location = 4) in vec3 aJointIds;
 layout (location = 5) in vec3 aWeights;
 
-uniform mat4 bone_world_matrices[MAX_BONES];
-uniform int has_skeleton;
+uniform mat4 boneTransforms[MAX_BONES];
+uniform int hasSkeleton;
 
 uniform mat4 lightSpaceMatrix;
 uniform mat4 M;
@@ -18,13 +18,13 @@ uniform mat4 M;
 out vec2 Uvs;
 
 mat4 boneTransform() {
-  return aWeights.x * bone_world_matrices[int(aJointIds.x)]
-       + aWeights.y * bone_world_matrices[int(aJointIds.y)]
-       + aWeights.z * bone_world_matrices[int(aJointIds.z)];
+  return aWeights.x * boneTransforms[int(aJointIds.x)]
+       + aWeights.y * boneTransforms[int(aJointIds.y)]
+       + aWeights.z * boneTransforms[int(aJointIds.z)];
 }
 
 void main() {
-  mat4 bt = has_skeleton == 1 ? boneTransform() : mat4(1.0);
+  mat4 bt = hasSkeleton == 1 ? boneTransform() : mat4(1.0);
   vec3 FragPos = vec3(M * bt * vec4(aPos, 1.0));
   Uvs = aUvs.st;
   gl_Position = lightSpaceMatrix * vec4(FragPos, 1.0);

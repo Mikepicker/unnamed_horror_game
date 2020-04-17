@@ -321,7 +321,7 @@ static void import_mtl(const char* asset) {
     }
     // specular
     else if (strstr(line, "Ks ") != NULL) {
-      sscanf(line, "Ks %f %f %f\n", &current_mat->specular[0], &current_mat->specular[1], &current_mat->specular[2]);
+      sscanf(line, "Ks %f\n", &current_mat->specular, &current_mat->specular, &current_mat->specular);
     }
     else if (strstr(line, "r ") != NULL) {
       sscanf(line, "r %f\n", &current_mat->reflectivity);

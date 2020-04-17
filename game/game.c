@@ -79,9 +79,7 @@ void game_init(GLFWwindow* w) {
   strcpy(mat_grass.name, "grass_mat");
   strcpy(mat_grass.texture_path, "assets/textures/Grass_001_COLOR.jpg");
   strcpy(mat_grass.normal_map_path, "assets/textures/Grass_001_NORM.jpg");
-  mat_grass.specular[0] = 1.0f;
-  mat_grass.specular[1] = 1.0f;
-  mat_grass.specular[2] = 1.0f;
+  mat_grass.specular = 0.0f;
   mat_grass.reflectivity = 0;
   mat_grass.texture_subdivision = 300;
 

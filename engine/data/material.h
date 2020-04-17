@@ -10,7 +10,7 @@ typedef struct {
   char specular_map_path[256]; 
   char mask_map_path[256];
   vec3 diffuse;
-  vec3 specular;
+  float specular;
   float reflectivity;
   int texture_subdivision;
 } material;
