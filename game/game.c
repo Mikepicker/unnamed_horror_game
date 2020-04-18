@@ -1,15 +1,6 @@
 #include "game.h"
 
-static float rand_in_range(float min, float max) {
-  // return (rand() % (max - min + 1)) + min;
-  return (fmod(rand(), (max - min + 1))) + min;
-}
-
 void game_init(GLFWwindow* w) {
-  // seed random
-  time_t t;
-  srand((unsigned) time(&t));
-
   // game camera
   game_camera.front[0] = 0.0f;
   game_camera.front[1] = 0.0f;
@@ -78,7 +69,7 @@ void game_init(GLFWwindow* w) {
   material_init(&mat_grass);
   strcpy(mat_grass.name, "grass_mat");
   strcpy(mat_grass.texture_path, "assets/textures/Grass_001_COLOR.jpg");
-  strcpy(mat_grass.normal_map_path, "assets/textures/Grass_001_NORM.jpg");
+  // strcpy(mat_grass.normal_map_path, "assets/textures/Grass_001_NORM.jpg");
   mat_grass.specular = 0.0f;
   mat_grass.reflectivity = 0;
   mat_grass.texture_subdivision = 300;
@@ -162,10 +153,10 @@ void game_init(GLFWwindow* w) {
   for (int i = 0; i < MAX_TREES; i++) {
     memcpy(&trees[i], tree_1, sizeof(object));
     trees[i].scale = tree_scale;
-    trees[i].position[0] = rand_in_range(min, max);
+    trees[i].position[0] = random_range(min, max);
     trees[i].position[1] = 0;
-    trees[i].position[2] = rand_in_range(min, max);
-    float rot = rand_in_range(0, 180);
+    trees[i].position[2] = random_range(min, max);
+    float rot = random_range(0, 180);
     vec3 y_axis = { 0, 1, 0 };
     quat_rotate(trees[i].rotation, to_radians(rot), y_axis);
   }
@@ -177,14 +168,14 @@ void game_init(GLFWwindow* w) {
 
   for (int i = 0; i < MAX_ROCKS; i++) {
     memcpy(&rocks[i], rock, sizeof(object));
-    rocks[i].scale = rand_in_range(0.5, 1);
-    rocks[i].position[0] = rand_in_range(min, max);
-    rocks[i].position[1] = rand_in_range(-1, 0.5);
-    rocks[i].position[2] = rand_in_range(min, max);
-    float rot = rand_in_range(0, 180);
+    rocks[i].scale = random_range(0.5, 1);
+    rocks[i].position[0] = random_range(min, max);
+    rocks[i].position[1] = random_range(-1, 0.5);
+    rocks[i].position[2] = random_range(min, max);
+    float rot = random_range(0, 180);
     vec3 y_axis = { 0, 1, 0 };
     quat_rotate(rocks[i].rotation, to_radians(rot), y_axis);
-    rot = rand_in_range(0, 180);
+    rot = random_range(0, 180);
     vec3 z_axis = { 0, 0, 1 };
     quat_rotate(rocks[i].rotation, to_radians(rot), z_axis);
   }

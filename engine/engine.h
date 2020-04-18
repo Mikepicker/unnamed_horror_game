@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
@@ -31,14 +32,5 @@
 
 /* include data structures */
 #include "dict.h"
-
-/* include data */
-/*#include "data/vertex.h"
-#include "data/material.h"
-#include "data/camera.h"
-#include "data/light.h"
-#include "data/aabb.h"
-#include "data/mesh.h"
-#include "data/object.h"*/
 
 #endif

@@ -4,6 +4,8 @@
 
 int main()
 {
+  random_seed();
+
   // Init context
   GLFWwindow* window;
   if (renderer_init("Ada", GAME_WIDTH, GAME_HEIGHT, 0, &window) < 0) {

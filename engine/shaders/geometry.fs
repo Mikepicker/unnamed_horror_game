@@ -6,7 +6,7 @@ layout (location = 2) out vec4 gAlbedoSpec;
 in vec2 TexCoords;
 in vec3 FragPos;
 in vec3 Normal;
-in mat3 TBN_inv;
+in mat3 TBN;
 
 uniform sampler2D texture_diffuse;
 uniform sampler2D texture_normal;
@@ -33,7 +33,8 @@ vec3 computeNormal()
   // transform normal vector to range [-1,1]
   normal = normalize(normal * 2.0 - 1.0);  // this normal is in tangent space
 
-  return TBN_inv * normal;
+  return TBN * normal;
+  // return normal;
 }
 
 void main() {    

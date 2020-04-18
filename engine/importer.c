@@ -529,6 +529,7 @@ object* importer_load(const char* asset) {
         meshes[meshes_count].indices = indices;
         meshes[meshes_count].num_vertices = total_vertices;
         meshes[meshes_count].num_indices = icount;
+        mesh_compute_tangent(&meshes[meshes_count]);
         meshes_count++;
       } else {
         first_mesh = 0;
@@ -545,6 +546,7 @@ object* importer_load(const char* asset) {
   meshes[meshes_count].indices = indices;
   meshes[meshes_count].num_vertices = total_vertices;
   meshes[meshes_count].num_indices = icount;
+  mesh_compute_tangent(&meshes[meshes_count]);
   meshes_count++;
 
   fclose(file);

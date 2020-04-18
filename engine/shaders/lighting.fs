@@ -9,7 +9,7 @@ in vec2 TexCoords;
 uniform sampler2D gPosition;
 uniform sampler2D gNormal;
 uniform sampler2D gAlbedoSpec;
-// uniform sampler2D ssao;
+uniform sampler2D ssao;
 
 // lights
 uniform vec3 lightsPos[NR_LIGHTS]; 
@@ -30,6 +30,8 @@ uniform vec3 color_mask;
 uniform int glowing;
 uniform vec3 glow_color;
 uniform int receive_shadows;
+
+uniform mat4 viewInv;
 
 float shadowCalculation(vec4 fragPosLightSpace, vec3 lightDir, vec3 normal) {
   // perform perspective divide
@@ -72,15 +74,16 @@ void main()
   vec3 Diffuse = texture(gAlbedoSpec, TexCoords).rgb;
   float Specular = texture(gAlbedoSpec, TexCoords).a;
 
-  vec4 fragPosLightSpace = lightSpaceMatrix * vec4(FragPos, 1.0);
+  vec4 fragPosLightSpace = lightSpaceMatrix * viewInv * vec4(FragPos, 1.0);
 
-  // float AmbientOcclusion = texture(ssao, TexCoords).r;
-  float AmbientOcclusion = 1.0;
+  float ao = texture(ssao, TexCoords).r;
+  /* FragColor = vec4(ao, ao, ao, 1);
+  return;*/
 
   // then calculate lighting as usual
-  vec3 ambient = vec3(1 * Diffuse * AmbientOcclusion);
+  vec3 ambient = vec3(1 * Diffuse * ao);
   vec3 lighting  = ambient; 
-  vec3 viewDir  = normalize(cameraPos - FragPos); // viewpos is (0.0.0)
+  vec3 viewDir  = normalize(-FragPos); // viewpos is (0.0.0)
 
   for (int i = 0; i < NR_LIGHTS; i++) {
     // diffuse

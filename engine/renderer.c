@@ -87,7 +87,7 @@ static void init_g_buffer(int width, int height) {
   // position color buffer
   glGenTextures(1, &renderer_g_position);
   glBindTexture(GL_TEXTURE_2D, renderer_g_position);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -123,6 +123,59 @@ static void init_g_buffer(int width, int height) {
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+void init_ssao(int width, int height) {
+  // color
+  glGenFramebuffers(1, &renderer_ssao_fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, renderer_ssao_fbo);
+  glGenTextures(1, &renderer_ssao_color);
+  glBindTexture(GL_TEXTURE_2D, renderer_ssao_color);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RGB, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, renderer_ssao_color, 0);
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    printf("[renderer] error: SSAO Framebuffer not complete\n");
+
+  // blur
+  glGenFramebuffers(1, &renderer_ssao_blur_fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, renderer_ssao_blur_fbo);
+  glGenTextures(1, &renderer_ssao_blur);
+  glBindTexture(GL_TEXTURE_2D, renderer_ssao_blur);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RGB, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, renderer_ssao_blur, 0);
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    printf("[renderer] error: SSAO Framebuffer not complete\n");
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  // init kernel
+  for (int i = 0; i < SSAO_MAX_KERNEL_SIZE; i++) {
+    vec3 sample = { random_range(0, 1) * 2 - 1, random_range(0, 1) * 2 - 1, random_range(0, 1) };
+    vec3_norm(sample, sample);
+    vec3_scale(sample, sample, random_range(0, 1));
+    float scale = (float)i / SSAO_MAX_KERNEL_SIZE;
+
+    scale = lerp(0.1f, 1.0f, scale * scale);
+    vec3_scale(sample, sample, scale);
+    vec3_copy(renderer_ssao_kernel[i], sample);
+  }
+
+  // init noise texture
+  for (int i = 0; i < SSAO_MAX_NOISE_SIZE; i++) {
+    vec3 sample = { random_range(0, 1) * 2 - 1, random_range(0, 1) * 2 - 1, 0 };
+    vec3_copy(renderer_ssao_noise[i], sample);
+  }
+
+  glGenTextures(1, &renderer_ssao_noise_texture);
+  glBindTexture(GL_TEXTURE_2D, renderer_ssao_noise_texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, 4, 4, 0, GL_RGB, GL_FLOAT, &renderer_ssao_noise[0]);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+}
+
 int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow** out_window) {
   glfwInit();
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -148,6 +201,9 @@ int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow
     return -1;
   }
 
+  // compile shaders
+  renderer_recompile_shader();
+
   // init gbuffer
   init_g_buffer(width, height);
 
@@ -161,14 +217,18 @@ int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow
   renderer_shadow_bias = 0.22f;
   renderer_shadow_pcf_enabled = 1;
 
+  // ssao
+  renderer_ssao_enabled = 1;
+
+  if (renderer_ssao_enabled) {
+    init_ssao(width, height);
+  }
+
   // init depth fbo
   init_depth_fbo();
 
   // set opengl state
   set_opengl_state();
-
-  // compile shaders
-  renderer_recompile_shader();
 
   return 0;
 }
@@ -184,6 +244,8 @@ void renderer_recompile_shader() {
   shader_compile("../engine/shaders/shadow.vs", "../engine/shaders/shadow.fs", &renderer_shadow_shader);
   shader_compile("../engine/shaders/debug.vs", "../engine/shaders/debug.fs", &renderer_debug_shader);
   shader_compile("../engine/shaders/skybox.vs", "../engine/shaders/skybox.fs", &renderer_skybox_shader);
+  shader_compile("../engine/shaders/ssao.vs", "../engine/shaders/ssao.fs", &renderer_ssao_shader);
+  shader_compile("../engine/shaders/ssao.vs", "../engine/shaders/blur.fs", &renderer_ssao_blur_shader);
 }
 
 int renderer_should_close() {
@@ -377,13 +439,14 @@ static void render_objects(object *objects[], int objects_length, GLuint shader_
       glUniform1f(glGetUniformLocation(shader_id, "material.specular"), mesh->mat.specular);
       glUniform1f(glGetUniformLocation(shader_id, "material.reflectivity"), mesh->mat.reflectivity);
 
+      glUniform1i(glGetUniformLocation(shader_id, "texture_subdivision"), mesh->mat.texture_subdivision);
+
       // bind texture
       if (strlen(mesh->mat.texture_path) > 0) {
         glUniform1i(glGetUniformLocation(shader_id, "texture_diffuse"), 1);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, mesh->texture_id);
         glUniform1i(glGetUniformLocation(shader_id, "hasTexture"), 1);
-        glUniform1i(glGetUniformLocation(shader_id, "texture_subdivision"), mesh->mat.texture_subdivision);
       } else {
         glUniform1i(glGetUniformLocation(shader_id, "hasTexture"), 0);
       }
@@ -485,11 +548,10 @@ void renderer_render_objects(object* objects[], int objects_length, light* light
   glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
   glBindFramebuffer(GL_FRAMEBUFFER, renderer_depth_fbo);
   glClear(GL_DEPTH_BUFFER_BIT);
-  //glCullFace(GL_FRONT);
+  glCullFace(GL_FRONT);
   render_objects(objects, objects_length, renderer_shadow_shader);
-  //glCullFace(GL_BACK);
+  glCullFace(GL_BACK);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
   /*-------------------------------------------------------------------------*/
   /*------------------------------geometry pass------------------------------*/
   /*-------------------------------------------------------------------------*/
@@ -519,6 +581,49 @@ void renderer_render_objects(object* objects[], int objects_length, light* light
   render_objects(objects, objects_length, renderer_geometry_shader);
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  /*---------------------------------------------------------------------*/
+  /*------------------------------ssao pass------------------------------*/
+  /*---------------------------------------------------------------------*/
+  if (renderer_ssao_enabled) {
+    // generate ssao texture
+    glBindFramebuffer(GL_FRAMEBUFFER, renderer_ssao_fbo);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glUseProgram(renderer_ssao_shader);
+
+    // pass kernel + rotation
+    for (int i = 0; i < SSAO_MAX_KERNEL_SIZE; i++) {
+      char uniform_sample[256];
+      sprintf(uniform_sample, "samples[%d]", i);
+      glUniform3fv(glGetUniformLocation(renderer_ssao_shader, uniform_sample), 1, (const GLfloat*) renderer_ssao_kernel[i]);
+    }
+
+    glUniform1i(glGetUniformLocation(renderer_ssao_shader, "gPosition"), 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, renderer_g_position);
+    glUniform1i(glGetUniformLocation(renderer_ssao_shader, "gNormal"), 1);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, renderer_g_normal);
+    glUniform1i(glGetUniformLocation(renderer_ssao_shader, "texNoise"), 2);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, renderer_ssao_noise_texture);
+
+    glUniform1i(glGetUniformLocation(renderer_ssao_shader, "screenWidth"), width);
+    glUniform1i(glGetUniformLocation(renderer_ssao_shader, "screenHeight"), height);
+    glUniformMatrix4fv(glGetUniformLocation(renderer_ssao_shader, "projection"), 1, GL_FALSE, (const GLfloat*) p);
+
+    render_quad();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // blur ssao texture
+    glBindFramebuffer(GL_FRAMEBUFFER, renderer_ssao_blur_fbo);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glUseProgram(renderer_ssao_blur_shader);
+    glUniform1i(glGetUniformLocation(renderer_ssao_blur_shader, "texture_blur"), 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, renderer_ssao_color);
+    render_quad();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  }
   /*-------------------------------------------------------------------------*/
   /*------------------------------lighting pass------------------------------*/
   /*-------------------------------------------------------------------------*/
@@ -556,6 +661,11 @@ void renderer_render_objects(object* objects[], int objects_length, light* light
   glUniform1f(glGetUniformLocation(renderer_lighting_shader, "shadowBias"), renderer_shadow_bias);
   glUniform1i(glGetUniformLocation(renderer_lighting_shader, "shadowPCFEnabled"), renderer_shadow_pcf_enabled);
 
+  // pass inverse of view matrix (for shadows)
+  mat4 view_inv;
+  mat4_invert(view_inv, v);
+  glUniformMatrix4fv(glGetUniformLocation(renderer_lighting_shader, "viewInv"), 1, GL_FALSE, (const GLfloat*) view_inv);
+
   // pass depth map
   glActiveTexture(GL_TEXTURE3);
   glBindTexture(GL_TEXTURE_2D, renderer_depth_map);
@@ -572,6 +682,11 @@ void renderer_render_objects(object* objects[], int objects_length, light* light
 
   // pass time to shader
   glUniform1f(glGetUniformLocation(renderer_lighting_shader, "time"), (float)glfwGetTime());
+
+  // pass ssao texture to shader
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "ssao"), 5);
+  glActiveTexture(GL_TEXTURE5);
+  glBindTexture(GL_TEXTURE_2D, renderer_ssao_blur);
 
   render_quad();
   /*----------------------------------------------------------------------------------------------------*/

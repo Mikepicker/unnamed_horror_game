@@ -4,11 +4,15 @@
 #include "engine.h"
 #include "shader.h"
 #include "skybox.h"
+#include "random.h"
 #include "data/object.h"
 #include "data/light.h"
 #include "data/camera.h"
 #include "data/ray.h"
 #include "data/frame.h"
+
+#define SSAO_MAX_KERNEL_SIZE 64
+#define SSAO_MAX_NOISE_SIZE 16
 
 GLFWwindow* window;
 
@@ -18,6 +22,8 @@ GLuint renderer_main_shader;
 GLuint renderer_shadow_shader;
 GLuint renderer_debug_shader;
 GLuint renderer_skybox_shader;
+GLuint renderer_ssao_shader;
+GLuint renderer_ssao_blur_shader;
 
 GLuint renderer_depth_fbo;
 GLuint renderer_depth_map;
@@ -25,10 +31,20 @@ GLuint renderer_vao;
 GLuint renderer_vbo;
 
 // deferred rendering
-unsigned int renderer_g_buffer;
-unsigned int renderer_g_position;
-unsigned int renderer_g_normal;
-unsigned int renderer_g_albedo_spec;
+GLuint renderer_g_buffer;
+GLuint renderer_g_position;
+GLuint renderer_g_normal;
+GLuint renderer_g_albedo_spec;
+
+// ssao
+GLuint renderer_ssao_enabled;
+GLuint renderer_ssao_fbo;
+GLuint renderer_ssao_blur_fbo;
+GLuint renderer_ssao_color;
+GLuint renderer_ssao_blur;
+GLuint renderer_ssao_noise_texture;
+vec3 renderer_ssao_kernel[SSAO_MAX_KERNEL_SIZE];
+vec3 renderer_ssao_noise[SSAO_MAX_NOISE_SIZE];
 
 int renderer_debug_enabled;
 int renderer_render_aabb;

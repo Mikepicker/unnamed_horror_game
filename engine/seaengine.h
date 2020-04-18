@@ -10,3 +10,4 @@
 #include "factory.h"
 #include "skybox.h"
 #include "animator.h"
+#include "random.h"
