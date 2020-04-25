@@ -45,8 +45,9 @@ GLuint renderer_ssao_blur;
 GLuint renderer_ssao_noise_texture;
 vec3 renderer_ssao_kernel[SSAO_MAX_KERNEL_SIZE];
 vec3 renderer_ssao_noise[SSAO_MAX_NOISE_SIZE];
+int renderer_ssao_debug_on;
 
-int renderer_debug_enabled;
+int renderer_shadows_debug_enabled;
 int renderer_render_aabb;
 float renderer_shadow_bias;
 int renderer_shadow_pcf_enabled;

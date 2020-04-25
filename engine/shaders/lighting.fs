@@ -31,7 +31,12 @@ uniform int glowing;
 uniform vec3 glow_color;
 uniform int receive_shadows;
 
+// inverse of view matrix
 uniform mat4 viewInv;
+
+// ssao uniforms
+uniform int ssao_enabled;
+uniform int ssao_debug;
 
 float shadowCalculation(vec4 fragPosLightSpace, vec3 lightDir, vec3 normal) {
   // perform perspective divide
@@ -76,9 +81,15 @@ void main()
 
   vec4 fragPosLightSpace = lightSpaceMatrix * viewInv * vec4(FragPos, 1.0);
 
-  float ao = texture(ssao, TexCoords).r;
-  /* FragColor = vec4(ao, ao, ao, 1);
-  return;*/
+  float ao = 1.0;
+  if (ssao_enabled > 0) {
+    ao = texture(ssao, TexCoords).r;
+  }
+
+  if (ssao_debug > 0) {
+    FragColor = vec4(ao, ao, ao, 1);
+    return;
+  }
 
   // then calculate lighting as usual
   vec3 ambient = vec3(1 * Diffuse * ao);

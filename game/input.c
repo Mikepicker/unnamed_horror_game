@@ -50,8 +50,13 @@ void input_key_callback(GLFWwindow* window, int key, int scancode, int action, i
   if (key == GLFW_KEY_H && action == GLFW_PRESS)
     place_cube();
 
+  // debug shadows
   if (key == GLFW_KEY_J && action == GLFW_PRESS)
-    renderer_debug_enabled = renderer_debug_enabled == 0 ? 1 : 0;
+    renderer_shadows_debug_enabled = renderer_shadows_debug_enabled == 0 ? 1 : 0;
+
+  // debug ssao
+  if (key == GLFW_KEY_K && action == GLFW_PRESS)
+    renderer_ssao_debug_on = renderer_ssao_debug_on == 0 ? 1 : 0;
   
   // capture mouse
   if (action == GLFW_RELEASE) {

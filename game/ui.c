@@ -19,7 +19,8 @@ struct nk_colorf bg;
 
 void ui_init() {
 
- ctx = nk_glfw3_init(window, NK_GLFW3_INSTALL_CALLBACKS);
+ // ctx = nk_glfw3_init(window, NK_GLFW3_INSTALL_CALLBACKS);
+ ctx = nk_glfw3_init(window, NK_GLFW3_DEFAULT);
  {struct nk_font_atlas *atlas;
    nk_glfw3_font_stash_begin(&atlas);
    nk_glfw3_font_stash_end();}
@@ -91,7 +92,12 @@ void ui_render() {
 
     nk_layout_row_static(ctx, 30, 120, 1);
     if (nk_button_label(ctx, "Toggle depth map")) {
-      renderer_debug_enabled = renderer_debug_enabled == 0 ? 1 : 0;
+      renderer_shadows_debug_enabled = renderer_shadows_debug_enabled == 0 ? 1 : 0;
+    }
+
+    nk_layout_row_static(ctx, 30, 120, 1);
+    if (nk_button_label(ctx, "Toggle SSAO")) {
+      renderer_ssao_enabled = renderer_ssao_enabled == 0 ? 1 : 0;
     }
 
     nk_layout_row_static(ctx, 30, 120, 1);

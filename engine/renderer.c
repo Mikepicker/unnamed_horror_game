@@ -213,12 +213,13 @@ int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow
   renderer_shadow_far = 40.0f;
   renderer_shadow_size = 100.0f;
   renderer_vao = 0;
-  renderer_debug_enabled = 0;
+  renderer_shadows_debug_enabled = 0;
   renderer_shadow_bias = 0.22f;
   renderer_shadow_pcf_enabled = 1;
 
   // ssao
   renderer_ssao_enabled = 1;
+  renderer_ssao_debug_on = 0;
 
   if (renderer_ssao_enabled) {
     init_ssao(width, height);
@@ -344,6 +345,9 @@ void renderer_init_object(object* o) {
     mesh->specular_map_id = load_image(mesh->mat.specular_map_path);
     mesh->mask_map_id = load_image(mesh->mat.mask_map_path);
   }
+
+  // aabb
+  add_aabb(o);
 }
 
 void renderer_free_object(object* o) {
@@ -548,9 +552,9 @@ void renderer_render_objects(object* objects[], int objects_length, light* light
   glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
   glBindFramebuffer(GL_FRAMEBUFFER, renderer_depth_fbo);
   glClear(GL_DEPTH_BUFFER_BIT);
-  glCullFace(GL_FRONT);
+  // glCullFace(GL_FRONT);
   render_objects(objects, objects_length, renderer_shadow_shader);
-  glCullFace(GL_BACK);
+  // glCullFace(GL_BACK);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   /*-------------------------------------------------------------------------*/
   /*------------------------------geometry pass------------------------------*/
@@ -688,6 +692,10 @@ void renderer_render_objects(object* objects[], int objects_length, light* light
   glActiveTexture(GL_TEXTURE5);
   glBindTexture(GL_TEXTURE_2D, renderer_ssao_blur);
 
+  // ssao uniforms
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "ssao_enabled"), renderer_ssao_enabled);
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "ssao_debug"), renderer_ssao_debug_on);
+
   render_quad();
   /*----------------------------------------------------------------------------------------------------*/
   /*-----------------------------blit gbuffer depth to default framebuffer------------------------------*/
@@ -727,7 +735,7 @@ void renderer_render_objects(object* objects[], int objects_length, light* light
   glUniform1i(glGetUniformLocation(renderer_debug_shader, "depthMap"), 0);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, renderer_depth_map);
-  if (renderer_debug_enabled) render_quad();
+  if (renderer_shadows_debug_enabled) render_quad();
 
   // ui callback
   if (ui_render_callback != NULL) {

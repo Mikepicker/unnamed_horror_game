@@ -30,7 +30,7 @@ void game_init(GLFWwindow* w) {
   input_init();
 
   // init ui
-  // ui_init();
+  ui_init();
 
   // lights
   lights = malloc(MAX_LIGHTS * sizeof(light));
@@ -267,7 +267,8 @@ void game_update() {
   // lights
   // lights[0].position[1] = 10 + sinf(current_frame) * 5;
   lights[0].position[0] = game_camera.pos[0];
-  lights[0].position[1] = 15.0f;
+  // lights[0].position[1] = 15.0f;
+  lights[0].position[1] = game_camera.pos[1] + 15;
   lights[0].position[2] = game_camera.pos[2];
 
   // character
@@ -323,7 +324,7 @@ void game_render() {
   }
 
   // render
-  renderer_render_objects(game_render_list->objects, game_render_list->size, &lights, num_lights, &game_camera, NULL, &sky);
+  renderer_render_objects(game_render_list->objects, game_render_list->size, &lights, num_lights, &game_camera, ui_render, &sky);
 }
 
 void game_free() {
@@ -334,7 +335,7 @@ void game_free() {
   object_free(ground);
   free(lights);
 
-  // ui_free();
+  ui_free();
   skybox_free(&sky);
 
   // cleanup engine modules
