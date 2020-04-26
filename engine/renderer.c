@@ -1,8 +1,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "renderer.h"
 
-#define SHADOW_WIDTH 1024 * 2
-#define SHADOW_HEIGHT 1024 * 2
+#define SHADOW_WIDTH 1024 * 8
+#define SHADOW_HEIGHT 1024 * 8
 
 void set_opengl_state() {
   glEnable(GL_DEPTH_TEST);
@@ -510,8 +510,12 @@ static void calculate_world_transform(object* o) {
 
   if (o->parent != NULL) {
     calculate_world_transform(o->parent);
-    mat4_copy(parent_transform, o->parent->world_transform);
-    debug_print_mat4(o->parent->world_transform);
+
+    mat4_mul(parent_transform, parent_transform, o->parent->world_transform);
+
+    if (o->parent_joint >= 0) {
+      mat4_mul(parent_transform, parent_transform, o->parent->skel->current_frame.transforms[o->parent_joint]);
+    }
   }
 
   mat4 m;

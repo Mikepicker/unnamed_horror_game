@@ -7,6 +7,7 @@ object* object_create(vec3 position, GLfloat scale, mesh* meshes, int num_meshes
 
   // parent
   obj->parent = NULL;
+  obj->parent_joint = -1;
   obj->calculate_transform = 0;
 
   // meshes

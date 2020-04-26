@@ -57,7 +57,7 @@ void ui_render() {
   camera* cam = &game_camera;
 
   // debug
-  if (nk_begin(ctx, "Debug", nk_rect(800, 50, 300, 400),
+  if (nk_begin(ctx, "Debug", nk_rect(800, 50, 400, 500),
         NK_WINDOW_BORDER|NK_WINDOW_MOVABLE|NK_WINDOW_SCALABLE|
         NK_WINDOW_MINIMIZABLE|NK_WINDOW_TITLE))
   {
@@ -109,31 +109,9 @@ void ui_render() {
     snprintf(camera_pos, 128, "camera: %f %f %f | %f %f %f\n", cam->pos[0], cam->pos[1], cam->pos[2], cam->front[0], cam->front[1], cam->front[2]);
     nk_label(ctx, camera_pos, NK_TEXT_LEFT);
 
-    nk_layout_row_begin(ctx, NK_STATIC, 30, 2);
-    {
-      nk_layout_row_push(ctx, 50);
-      nk_label(ctx, "Shadow Bias:", NK_TEXT_LEFT);
-      nk_layout_row_push(ctx, 110);
-      nk_slider_float(ctx, 0, &renderer_shadow_bias, 0.5f, 0.1f);
-    }
-
-    char shadow_bias[128];
-    snprintf(shadow_bias, 128, "%f\n", renderer_shadow_bias);
-    nk_label(ctx, shadow_bias, NK_TEXT_LEFT);
-    nk_layout_row_end(ctx);
-
-    nk_layout_row_begin(ctx, NK_STATIC, 30, 2);
-    {
-      nk_layout_row_push(ctx, 50);
-      nk_label(ctx, "Shadow Map Size:", NK_TEXT_LEFT);
-      nk_layout_row_push(ctx, 110);
-      nk_slider_float(ctx, 0, &renderer_shadow_far, 20.0f, 10.0f);
-    }
-
-    char shadow_far[128];
-    snprintf(shadow_far, 128, "%f\n", renderer_shadow_far);
-    nk_label(ctx, shadow_far, NK_TEXT_LEFT);
-    nk_layout_row_end(ctx);
+    char item_pos[256];
+    snprintf(item_pos, 256, "garand: %f %f %f\n", garand->position[0], garand->position[1], garand->position[2]);
+    nk_label(ctx, item_pos, NK_TEXT_LEFT);
   }
   nk_end(ctx);
 

@@ -128,12 +128,24 @@ void game_init(GLFWwindow* w) {
 
   // load example item
   garand = importer_load("garand");
-  garand->scale = 0.2 / character.o->scale;
-  garand->position[1] = 4;
+  garand->scale = 1 * 0.2 / character.o->scale;
+  // garand->scale = 1;
+  garand->position[0] = -5.4;
+  garand->position[1] = 7.6;
+  garand->position[2] = 1;
+
+  // rotate rifle
   vec3 y_axis = { 0, 1, 0 };
-  quat_rotate(garand->rotation, to_radians(-90), y_axis);
+  vec3 z_axis = { 0, 0, 1 };
+  quat qy;
+  quat_rotate(qy, to_radians(-90), y_axis);
+  quat qz;
+  quat_rotate(qz, to_radians(-80), z_axis);
+  quat_mul(garand->rotation, qz, qy);
+
   renderer_init_object(garand);
   garand->parent = character.o;
+  garand->parent_joint = 18;
 
   // load enemy
   enemy.state = IDLE;
@@ -324,9 +336,9 @@ void game_render() {
   render_list_add(game_render_list, enemy.o);
 
   // render nature
-  for (int i = 0; i < MAX_TREES; i++) {
+  /* for (int i = 0; i < MAX_TREES; i++) {
     render_list_add(game_render_list, &trees[i]);
-  }
+  } */
 
   for (int i = 0; i < MAX_ROCKS; i++) {
     render_list_add(game_render_list, &rocks[i]);

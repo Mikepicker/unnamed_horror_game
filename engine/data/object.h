@@ -12,6 +12,7 @@
 struct object {
   // parent
   struct object* parent;
+  int parent_joint;
 
   // transform
   vec3 position;
