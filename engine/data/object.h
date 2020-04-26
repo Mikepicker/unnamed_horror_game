@@ -9,12 +9,19 @@
 
 #define OBJECT_MAX_ANIMS 16
 
-typedef struct {
+struct object {
+  // parent
+  struct object* parent;
+
   // transform
   vec3 position;
   vec3 center;
   GLfloat scale;
   quat rotation;
+
+  // world transform
+  mat4 world_transform;
+  int calculate_transform;
 
   // meshes
   mesh* meshes;
@@ -37,7 +44,9 @@ typedef struct {
   animation* anims[OBJECT_MAX_ANIMS];
   int anim_count;
   animation* current_anim;
-} object;
+};
+
+typedef struct object object;
 
 object* object_create(vec3 position, GLfloat scale, mesh* meshes, int num_meshes, int compute_center, skeleton* s);
 void object_add_animation(object* o, animation* a);

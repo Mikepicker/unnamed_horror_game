@@ -5,6 +5,10 @@ object* object_create(vec3 position, GLfloat scale, mesh* meshes, int num_meshes
 
   vec3 zero_vec = { 0, 0, 0 };
 
+  // parent
+  obj->parent = NULL;
+  obj->calculate_transform = 0;
+
   // meshes
   obj->meshes = meshes;
   obj->num_meshes = num_meshes;

@@ -126,6 +126,15 @@ void game_init(GLFWwindow* w) {
   renderer_init_object(character.o);
   animator_play(character.o, "idle", 1);
 
+  // load example item
+  garand = importer_load("garand");
+  garand->scale = 0.2 / character.o->scale;
+  garand->position[1] = 4;
+  vec3 y_axis = { 0, 1, 0 };
+  quat_rotate(garand->rotation, to_radians(-90), y_axis);
+  renderer_init_object(garand);
+  garand->parent = character.o;
+
   // load enemy
   enemy.state = IDLE;
   enemy.o = importer_load("character");
@@ -322,6 +331,9 @@ void game_render() {
   for (int i = 0; i < MAX_ROCKS; i++) {
     render_list_add(game_render_list, &rocks[i]);
   }
+  
+  // render sample item
+  render_list_add(game_render_list, garand);
 
   // render
   renderer_render_objects(game_render_list->objects, game_render_list->size, &lights, num_lights, &game_camera, ui_render, &sky);
@@ -333,6 +345,9 @@ void game_free() {
   audio_free_object(microdrag.cars[0].obj); */
   object_free(sample_cube.o);
   object_free(ground);
+
+  object_free(garand);
+
   free(lights);
 
   ui_free();

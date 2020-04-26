@@ -63,6 +63,9 @@ vec3 target_pos;
 // sample enemy
 entity enemy;
 
+// sample item
+object* garand;
+
 // materials
 static material mat_stone;
 

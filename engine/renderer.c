@@ -392,106 +392,86 @@ static void render_aabb(object* o) {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
+static void render_object(object* o, GLuint shader_id) {
+  glUniformMatrix4fv(glGetUniformLocation(shader_id, "M"), 1, GL_FALSE, (const GLfloat*) o->world_transform);
+
+  // handle animated objects
+  if (o->skel != NULL) {
+    glUniformMatrix4fv(glGetUniformLocation(shader_id, "boneTransforms"), o->skel->joint_count, GL_FALSE, (const GLfloat*) o->skel->current_frame.transforms);
+    glUniform1i(glGetUniformLocation(shader_id, "hasSkeleton"), 1);
+  } else {
+    glUniform1i(glGetUniformLocation(shader_id, "hasSkeleton"), 0);
+  }
+
+  // render params
+  glUniform3fv(glGetUniformLocation(shader_id, "color_mask"), 1, o->color_mask);
+  glUniform1i(glGetUniformLocation(shader_id, "glowing"), o->glowing);
+  glUniform3fv(glGetUniformLocation(shader_id, "glow_color"), 1, o->glow_color);
+  glUniform1i(glGetUniformLocation(shader_id, "receive_shadows"), o->receive_shadows);
+
+  for (int i = 0; i < o->num_meshes; i++) {
+    mesh* mesh = &o->meshes[i];
+
+    // pass material
+    glUniform3fv(glGetUniformLocation(shader_id, "material.diffuse"), 1, mesh->mat.diffuse);
+    glUniform1f(glGetUniformLocation(shader_id, "material.specular"), mesh->mat.specular);
+    glUniform1f(glGetUniformLocation(shader_id, "material.reflectivity"), mesh->mat.reflectivity);
+
+    glUniform1i(glGetUniformLocation(shader_id, "texture_subdivision"), mesh->mat.texture_subdivision);
+
+    // bind texture
+    if (strlen(mesh->mat.texture_path) > 0) {
+      glUniform1i(glGetUniformLocation(shader_id, "texture_diffuse"), 1);
+      glActiveTexture(GL_TEXTURE1);
+      glBindTexture(GL_TEXTURE_2D, mesh->texture_id);
+      glUniform1i(glGetUniformLocation(shader_id, "hasTexture"), 1);
+    } else {
+      glUniform1i(glGetUniformLocation(shader_id, "hasTexture"), 0);
+    }
+
+    // bind normal map
+    if (strlen(mesh->mat.normal_map_path) > 0) {
+      glUniform1i(glGetUniformLocation(shader_id, "texture_normal"), 2);
+      glActiveTexture(GL_TEXTURE2);
+      glBindTexture(GL_TEXTURE_2D, mesh->normal_map_id);
+      glUniform1i(glGetUniformLocation(shader_id, "hasNormalMap"), 1);
+    } else {
+      glUniform1i(glGetUniformLocation(shader_id, "hasNormalMap"), 0);
+    }
+
+    // bind specular map
+    if (strlen(mesh->mat.specular_map_path) > 0) {
+      glUniform1i(glGetUniformLocation(shader_id, "texture_specular"), 3);
+      glActiveTexture(GL_TEXTURE3);
+      glBindTexture(GL_TEXTURE_2D, mesh->specular_map_id);
+      glUniform1i(glGetUniformLocation(shader_id, "hasSpecularMap"), 1);
+    } else {
+      glUniform1i(glGetUniformLocation(shader_id, "hasSpecularMap"), 0);
+    }
+
+    // bind mask map
+    if (strlen(mesh->mat.mask_map_path) > 0) {
+      glUniform1i(glGetUniformLocation(shader_id, "texture_mask"), 4);
+      glActiveTexture(GL_TEXTURE4);
+      glBindTexture(GL_TEXTURE_2D, mesh->mask_map_id);
+      glUniform1i(glGetUniformLocation(shader_id, "hasMaskMap"), 1);
+    } else {
+      glUniform1i(glGetUniformLocation(shader_id, "hasMaskMap"), 0);
+    }
+
+    // render the mesh
+    glBindVertexArray(mesh->vao);
+    glDrawElements(GL_TRIANGLES, mesh->num_indices, GL_UNSIGNED_INT , 0);
+  }
+
+  if (renderer_render_aabb)
+    render_aabb(o);
+}
+
 static void render_objects(object *objects[], int objects_length, GLuint shader_id) {
   for (int i = 0; i < objects_length; i++) {
     object* o = objects[i];
-    mat4 m;
-
-    // scale
-    mat4_identity(m);
-    mat4_scale(m, m, o->scale);
-
-    // translate
-    mat4 translation;
-    mat4_translate(translation, o->position[0], o->position[1], o->position[2]);
-    mat4_mul(m, m, translation);
-
-    // compute rotation matrix from quaternion
-    mat4 mat_rot;
-    mat4_from_quat(mat_rot, o->rotation);
-
-    // rotate around center
-    mat4 t1;
-    mat4_translate(t1, o->center[0], o->center[1], o->center[2]);
-    mat4_mul(m, m, t1);
-    mat4_mul(m, m, mat_rot);
-    mat4 t2;
-    mat4_translate(t2, -o->center[0], -o->center[1], -o->center[2]);
-    mat4_mul(m, m, t2);
-
-    glUniformMatrix4fv(glGetUniformLocation(shader_id, "M"), 1, GL_FALSE, (const GLfloat*) m);
-
-    // handle animated objects
-    if (o->skel != NULL) {
-      glUniformMatrix4fv(glGetUniformLocation(shader_id, "boneTransforms"), o->skel->joint_count, GL_FALSE, (const GLfloat*) o->skel->current_frame.transforms);
-      glUniform1i(glGetUniformLocation(shader_id, "hasSkeleton"), 1);
-    } else {
-      glUniform1i(glGetUniformLocation(shader_id, "hasSkeleton"), 0);
-    }
-    
-    // render params
-    glUniform3fv(glGetUniformLocation(shader_id, "color_mask"), 1, o->color_mask);
-    glUniform1i(glGetUniformLocation(shader_id, "glowing"), o->glowing);
-    glUniform3fv(glGetUniformLocation(shader_id, "glow_color"), 1, o->glow_color);
-    glUniform1i(glGetUniformLocation(shader_id, "receive_shadows"), o->receive_shadows);
-
-    for (int i = 0; i < o->num_meshes; i++) {
-      mesh* mesh = &o->meshes[i];
-
-      // pass material
-      glUniform3fv(glGetUniformLocation(shader_id, "material.diffuse"), 1, mesh->mat.diffuse);
-      glUniform1f(glGetUniformLocation(shader_id, "material.specular"), mesh->mat.specular);
-      glUniform1f(glGetUniformLocation(shader_id, "material.reflectivity"), mesh->mat.reflectivity);
-
-      glUniform1i(glGetUniformLocation(shader_id, "texture_subdivision"), mesh->mat.texture_subdivision);
-
-      // bind texture
-      if (strlen(mesh->mat.texture_path) > 0) {
-        glUniform1i(glGetUniformLocation(shader_id, "texture_diffuse"), 1);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, mesh->texture_id);
-        glUniform1i(glGetUniformLocation(shader_id, "hasTexture"), 1);
-      } else {
-        glUniform1i(glGetUniformLocation(shader_id, "hasTexture"), 0);
-      }
-
-      // bind normal map
-      if (strlen(mesh->mat.normal_map_path) > 0) {
-        glUniform1i(glGetUniformLocation(shader_id, "texture_normal"), 2);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, mesh->normal_map_id);
-        glUniform1i(glGetUniformLocation(shader_id, "hasNormalMap"), 1);
-      } else {
-        glUniform1i(glGetUniformLocation(shader_id, "hasNormalMap"), 0);
-      }
-
-      // bind specular map
-      if (strlen(mesh->mat.specular_map_path) > 0) {
-        glUniform1i(glGetUniformLocation(shader_id, "texture_specular"), 3);
-        glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, mesh->specular_map_id);
-        glUniform1i(glGetUniformLocation(shader_id, "hasSpecularMap"), 1);
-      } else {
-        glUniform1i(glGetUniformLocation(shader_id, "hasSpecularMap"), 0);
-      }
-
-      // bind mask map
-      if (strlen(mesh->mat.mask_map_path) > 0) {
-        glUniform1i(glGetUniformLocation(shader_id, "texture_mask"), 4);
-        glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_2D, mesh->mask_map_id);
-        glUniform1i(glGetUniformLocation(shader_id, "hasMaskMap"), 1);
-      } else {
-        glUniform1i(glGetUniformLocation(shader_id, "hasMaskMap"), 0);
-      }
-
-      // render the mesh
-      glBindVertexArray(mesh->vao);
-      glDrawElements(GL_TRIANGLES, mesh->num_indices, GL_UNSIGNED_INT , 0);
-    }
-
-    if (renderer_render_aabb)
-      render_aabb(o);
+    render_object(o, shader_id);
   }
 }
 
@@ -520,6 +500,54 @@ static void render_quad() {
   glBindVertexArray(0);
 }
 
+static void calculate_world_transform(object* o) {
+  if (!o->calculate_transform) {
+    return;
+  }
+
+  mat4 parent_transform;
+  mat4_identity(parent_transform);
+
+  if (o->parent != NULL) {
+    calculate_world_transform(o->parent);
+    mat4_copy(parent_transform, o->parent->world_transform);
+    debug_print_mat4(o->parent->world_transform);
+  }
+
+  mat4 m;
+
+  mat4_identity(m);
+
+  // multiply by parent
+  mat4_mul(m, m, parent_transform);
+
+  // scale
+  mat4_scale(m, m, o->scale);
+
+  // translate
+  mat4 translation;
+  mat4_translate(translation, o->position[0], o->position[1], o->position[2]);
+  mat4_mul(m, m, translation);
+
+  // compute rotation matrix from quaternion
+  mat4 mat_rot;
+  mat4_from_quat(mat_rot, o->rotation);
+
+  // rotate around center
+  mat4 t1;
+  mat4_translate(t1, o->center[0], o->center[1], o->center[2]);
+  mat4_mul(m, m, t1);
+  mat4_mul(m, m, mat_rot);
+  mat4 t2;
+  mat4_translate(t2, -o->center[0], -o->center[1], -o->center[2]);
+  mat4_mul(m, m, t2);
+
+  // set world transform
+  mat4_copy(o->world_transform, m);
+
+  o->calculate_transform = 0;
+}
+
 void renderer_render_objects(object* objects[], int objects_length, light* lights[], int lights_length, camera* camera, void (*ui_render_callback)(void), skybox* sky)
 {
   GLint time;
@@ -527,6 +555,16 @@ void renderer_render_objects(object* objects[], int objects_length, light* light
   int width, height;
 
   glfwGetFramebufferSize(window, &width, &height);
+
+  // reset world transform calculations
+  for (int i = 0; i < objects_length; i++) {
+    objects[i]->calculate_transform = 1;
+  }
+
+  // calculate transforms
+  for (int i = 0; i < objects_length; i++) {
+    calculate_world_transform(objects[i]);
+  }
 
   /*-------------------------------------------------------------------*/
   /*------------------------------shadows------------------------------*/
