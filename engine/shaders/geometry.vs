@@ -36,13 +36,12 @@ void main()
 {
   mat4 bt = hasSkeleton == 1 ? boneTransform() : mat4(1.0);
 
-  vec4 viewPos = V * M * bt * vec4(aPos, 1.0);
-  FragPos = viewPos.xyz;
-  // FragPos = vec3(M * bt * vec4(aPos, 1.0));
+  vec4 viewPos = V * vec4(vec3(M * bt * vec4(aPos, 1.0)), 1.0);
+
   TexCoords = aUvs.st;
 
-  mat3 normalMatrix = transpose(inverse(mat3(V * M)));
-  Normal = normalMatrix * (bt * vec4(aNormal, 1.0)).xyz;
+  mat3 normalMatrix = transpose(inverse(mat3(V * M * bt)));
+  Normal = normalMatrix * (vec4(aNormal, 1.0)).xyz;
 
   // normal map
   if (hasNormalMap > 0) {
@@ -53,6 +52,6 @@ void main()
     TBN = mat3(T, B, N);
   }
 
-  FragPos = vec3(V * vec4(vec3(M * bt * vec4(aPos, 1.0)), 1.0));
-  gl_Position = P * V * vec4(vec3(M * bt * vec4(aPos, 1.0)), 1.0);
+  FragPos = vec3(viewPos);
+  gl_Position = P * viewPos;
 }
