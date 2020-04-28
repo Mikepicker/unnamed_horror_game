@@ -24,6 +24,7 @@ GLuint renderer_debug_shader;
 GLuint renderer_skybox_shader;
 GLuint renderer_ssao_shader;
 GLuint renderer_ssao_blur_shader;
+GLuint renderer_fxaa_shader;
 
 GLuint renderer_depth_fbo;
 GLuint renderer_depth_map;
@@ -46,6 +47,11 @@ GLuint renderer_ssao_noise_texture;
 vec3 renderer_ssao_kernel[SSAO_MAX_KERNEL_SIZE];
 vec3 renderer_ssao_noise[SSAO_MAX_NOISE_SIZE];
 int renderer_ssao_debug_on;
+
+// fxaa
+int renderer_fxaa_enabled;
+GLuint renderer_fxaa_fbo;
+GLuint renderer_fxaa_texture;
 
 int renderer_shadows_debug_enabled;
 int renderer_render_aabb;

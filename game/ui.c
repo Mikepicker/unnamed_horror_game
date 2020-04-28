@@ -96,6 +96,11 @@ void ui_render() {
     }
 
     nk_layout_row_static(ctx, 30, 120, 1);
+    if (nk_button_label(ctx, "Toggle FXAA")) {
+      renderer_fxaa_enabled = renderer_fxaa_enabled == 0 ? 1 : 0;
+    }
+
+    nk_layout_row_static(ctx, 30, 120, 1);
     if (nk_button_label(ctx, "Toggle SSAO")) {
       renderer_ssao_enabled = renderer_ssao_enabled == 0 ? 1 : 0;
     }

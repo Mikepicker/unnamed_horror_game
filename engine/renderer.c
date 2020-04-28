@@ -176,6 +176,20 @@ void init_ssao(int width, int height) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 }
 
+void init_fxaa(int width, int height) {
+  glGenFramebuffers(1, &renderer_fxaa_fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, renderer_fxaa_fbo);
+  glGenTextures(1, &renderer_fxaa_texture);
+  glBindTexture(GL_TEXTURE_2D, renderer_fxaa_texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, renderer_fxaa_texture, 0);
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    printf("[renderer] error: FXAA Framebuffer not complete\n");
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow** out_window) {
   glfwInit();
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -217,13 +231,16 @@ int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow
   renderer_shadow_bias = 0.22f;
   renderer_shadow_pcf_enabled = 1;
 
+  // fxaa
+  renderer_fxaa_enabled = 1;
+
   // ssao
-  renderer_ssao_enabled = 1;
+  renderer_ssao_enabled = 0;
   renderer_ssao_debug_on = 0;
 
-  if (renderer_ssao_enabled) {
-    init_ssao(width, height);
-  }
+  init_ssao(width, height);
+
+  init_fxaa(width, height);
 
   // init depth fbo
   init_depth_fbo();
@@ -247,6 +264,7 @@ void renderer_recompile_shader() {
   shader_compile("../engine/shaders/skybox.vs", "../engine/shaders/skybox.fs", &renderer_skybox_shader);
   shader_compile("../engine/shaders/ssao.vs", "../engine/shaders/ssao.fs", &renderer_ssao_shader);
   shader_compile("../engine/shaders/ssao.vs", "../engine/shaders/blur.fs", &renderer_ssao_blur_shader);
+  shader_compile("../engine/shaders/fxaa.vs", "../engine/shaders/fxaa.fs", &renderer_fxaa_shader);
 }
 
 int renderer_should_close() {
@@ -674,6 +692,7 @@ void renderer_render_objects(object* objects[], int objects_length, light* light
   /*------------------------------lighting pass------------------------------*/
   /*-------------------------------------------------------------------------*/
   // 2. lighting pass: calculate lighting by iterating over a screen filled quad pixel-by-pixel using gbuffer
+  glBindFramebuffer(GL_FRAMEBUFFER, renderer_fxaa_fbo);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   glUseProgram(renderer_lighting_shader);
@@ -739,6 +758,24 @@ void renderer_render_objects(object* objects[], int objects_length, light* light
   glUniform1i(glGetUniformLocation(renderer_lighting_shader, "ssao_debug"), renderer_ssao_debug_on);
 
   render_quad();
+  /*-------------------------------------------------------------------------*/
+  /*------------------------------fxaa pass------------------------------*/
+  /*-------------------------------------------------------------------------*/
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glClear(GL_COLOR_BUFFER_BIT);
+  glUseProgram(renderer_fxaa_shader);
+
+  // pass window size
+  glUniform1i(glGetUniformLocation(renderer_fxaa_shader, "fxaa_enabled"), renderer_fxaa_enabled);
+  glUniform1i(glGetUniformLocation(renderer_fxaa_shader, "width"), width);
+  glUniform1i(glGetUniformLocation(renderer_fxaa_shader, "height"), height);
+
+  glUniform1i(glGetUniformLocation(renderer_fxaa_shader, "frame"), 0);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, renderer_fxaa_texture);
+
+  render_quad();
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
   /*----------------------------------------------------------------------------------------------------*/
   /*-----------------------------blit gbuffer depth to default framebuffer------------------------------*/
   /*----------------------------------------------------------------------------------------------------*/
