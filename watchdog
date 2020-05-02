@@ -1,0 +1,5 @@
+while inotifywait -e close_write game; do
+  killall craft
+  wmctrl -a test.sh
+  ./test.sh &
+done
