@@ -37,6 +37,10 @@ camera game_camera;
 render_list* game_render_list;
 float delta_time;
 float last_frame;
+
+// sun
+light sun;
+
 light* lights;
 int num_lights;
 // ALuint sound_car;

@@ -32,9 +32,19 @@ void game_init(GLFWwindow* w) {
   // init ui
   ui_init();
 
+  // sun
+  sun.type = DIRECTIONAL;
+  sun.position[0] = 0;
+  sun.position[1] = 15;
+  sun.position[2] = 0;
+  sun.dir[0] = 0;
+  sun.dir[1] = 0;
+  sun.dir[2] = 0;
+
   // lights
   lights = malloc(MAX_LIGHTS * sizeof(light));
   light l1;
+  l1.type = POINT;
   l1.position[0] = 0.0f;
   l1.position[1] = 4.0f;
   l1.position[2] = 0.0f;
@@ -115,7 +125,7 @@ void game_init(GLFWwindow* w) {
   character.state = IDLE;
   character.o = importer_load("character");
   character.o->scale = 0.01f;
-  character.o->receive_shadows = 1;
+  character.o->receive_shadows = 0;
   physics_compute_aabb(character.o);
   character.run_speed = 4;
   character.dir[0] = 0;
@@ -151,7 +161,7 @@ void game_init(GLFWwindow* w) {
   enemy.state = IDLE;
   enemy.o = importer_load("character");
   enemy.o->scale = 0.01f;
-  enemy.o->receive_shadows = 1;
+  enemy.o->receive_shadows = 0;
   enemy.run_speed = 4;
   enemy.dir[0] = 0;
   enemy.dir[1] = 0;
@@ -163,12 +173,12 @@ void game_init(GLFWwindow* w) {
   animator_play(enemy.o, "idle", 1);
 
   // load tree
-  tree_1 = importer_load("tree_2");
+  tree_1 = importer_load("tree");
   tree_1->receive_shadows = 0;
   renderer_init_object(tree_1);
 
   // spawn trees randomly
-  float tree_scale = 2;
+  float tree_scale = 16;
   int max = 30 * 1/tree_scale;
   int min = -30 * 1/tree_scale;
   for (int i = 0; i < MAX_TREES; i++) {
@@ -286,11 +296,10 @@ void game_update() {
   input_update();
 
   // lights
-  // lights[0].position[1] = 10 + sinf(current_frame) * 5;
-  lights[0].position[0] = game_camera.pos[0];
-  // lights[0].position[1] = 15.0f;
-  lights[0].position[1] = game_camera.pos[1] + 15;
-  lights[0].position[2] = game_camera.pos[2];
+  // sun.position[0] = 10 + sinf(current_frame) * 5;
+  sun.position[0] = game_camera.pos[0];
+  sun.position[1] = game_camera.pos[1] + 15;
+  sun.position[2] = game_camera.pos[2] - 20;
 
   // character
   update_character();
@@ -336,9 +345,9 @@ void game_render() {
   render_list_add(game_render_list, enemy.o);
 
   // render nature
-  /* for (int i = 0; i < MAX_TREES; i++) {
+  for (int i = 0; i < MAX_TREES; i++) {
     render_list_add(game_render_list, &trees[i]);
-  } */
+  }
 
   for (int i = 0; i < MAX_ROCKS; i++) {
     render_list_add(game_render_list, &rocks[i]);
@@ -348,7 +357,7 @@ void game_render() {
   render_list_add(game_render_list, garand);
 
   // render
-  renderer_render_objects(game_render_list->objects, game_render_list->size, &lights, num_lights, &game_camera, ui_render, &sky);
+  renderer_render_objects(game_render_list->objects, game_render_list->size, &sun, &lights, num_lights, &game_camera, ui_render, &sky);
 }
 
 void game_free() {

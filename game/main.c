@@ -13,6 +13,9 @@ int main()
     return -1;
   }
 
+  // devmode ON
+  glfwSetWindowPos(window, -1400, 100);
+
   // Init audio
   if (audio_init() < 0) {
     printf("Error initializing audio\n");

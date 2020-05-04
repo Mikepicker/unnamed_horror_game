@@ -8,12 +8,14 @@ in vec2 TexCoords;
 // gbuffer
 uniform sampler2D gPosition;
 uniform sampler2D gNormal;
-uniform sampler2D gAlbedoSpec;
+uniform sampler2D gAlbedo;
+uniform sampler2D gSpec;
 uniform sampler2D ssao;
 
 // lights
 uniform vec3 lightsPos[NR_LIGHTS]; 
 uniform vec3 lightsColors[NR_LIGHTS];
+uniform vec3 lightsType[NR_LIGHTS];
 uniform int lightsNr;
 
 // camera
@@ -29,7 +31,6 @@ uniform mat4 lightSpaceMatrix;
 uniform vec3 color_mask;
 uniform int glowing;
 uniform vec3 glow_color;
-uniform int receive_shadows;
 
 // inverse of view matrix
 uniform mat4 viewInv;
@@ -76,8 +77,11 @@ void main()
   // retrieve data from gbuffer
   vec3 FragPos = texture(gPosition, TexCoords).rgb;
   vec3 Normal = texture(gNormal, TexCoords).rgb;
-  vec3 Diffuse = texture(gAlbedoSpec, TexCoords).rgb;
-  float Specular = texture(gAlbedoSpec, TexCoords).a;
+  vec3 Diffuse = texture(gAlbedo, TexCoords).rgb;
+  float Specular = texture(gSpec, TexCoords).r;
+
+  // receive shadow in the gBuffer (gPosition, alpha channel)
+  float receive_shadows = texture(gPosition, TexCoords).a;
 
   vec4 fragPosLightSpace = lightSpaceMatrix * viewInv * vec4(FragPos, 1.0);
 
@@ -113,7 +117,9 @@ void main()
 
     // shadows
     float shadow = 0.0;
-    shadow = shadowCalculation(fragPosLightSpace, lightDir, Normal);
+    if (receive_shadows > 0) {
+      shadow = shadowCalculation(fragPosLightSpace, lightDir, Normal);
+    }
 
     lighting += (1.0 - shadow) * (diffuse + specular);
   }
