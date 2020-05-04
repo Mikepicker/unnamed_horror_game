@@ -604,7 +604,15 @@ void renderer_render_objects(object* objects[], int objects_length, light* sun, 
   mat4 light_proj, light_view, light_space;
   mat4_ortho(light_proj, -renderer_shadow_size, renderer_shadow_size, -renderer_shadow_size, renderer_shadow_size, renderer_shadow_near, renderer_shadow_far);
   vec3 up = { 0.0f, 0.0f, 1.0f };
-  mat4_look_at(light_view, sun->position, sun->dir, up);
+
+  vec3 sun_target;
+  vec3_add(sun_target, sun->dir, camera->pos);
+
+  // move sun with camera
+  vec3 sun_cam_pos;
+  vec3_add(sun_cam_pos, camera->pos, sun->position);
+
+  mat4_look_at(light_view, sun_cam_pos, sun_target, up);
   mat4_mul(light_space, light_proj, light_view);
 
   // render scene from light's point of view

@@ -70,6 +70,9 @@ entity enemy;
 // sample item
 object* garand;
 
+// wood wall
+object* wall;
+
 // materials
 static material mat_stone;
 

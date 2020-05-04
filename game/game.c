@@ -36,7 +36,7 @@ void game_init(GLFWwindow* w) {
   sun.type = DIRECTIONAL;
   sun.position[0] = 0;
   sun.position[1] = 15;
-  sun.position[2] = 0;
+  sun.position[2] = -20;
   sun.dir[0] = 0;
   sun.dir[1] = 0;
   sun.dir[2] = 0;
@@ -211,6 +211,11 @@ void game_init(GLFWwindow* w) {
     quat_rotate(rocks[i].rotation, to_radians(rot), z_axis);
   }
 
+  // load wood wall
+  wall = importer_load("wood_wall");
+  wall->receive_shadows = 0;
+  renderer_init_object(wall);
+
   // game state
   state = MENU;
 }
@@ -297,9 +302,9 @@ void game_update() {
 
   // lights
   // sun.position[0] = 10 + sinf(current_frame) * 5;
-  sun.position[0] = game_camera.pos[0];
+  /* sun.position[0] = game_camera.pos[0];
   sun.position[1] = game_camera.pos[1] + 15;
-  sun.position[2] = game_camera.pos[2] - 20;
+  sun.position[2] = game_camera.pos[2] - 20; */
 
   // character
   update_character();
@@ -355,6 +360,9 @@ void game_render() {
   
   // render sample item
   render_list_add(game_render_list, garand);
+
+  // render wall
+  render_list_add(game_render_list, wall);
 
   // render
   renderer_render_objects(game_render_list->objects, game_render_list->size, &sun, &lights, num_lights, &game_camera, ui_render, &sky);
