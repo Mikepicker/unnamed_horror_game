@@ -11,4 +11,5 @@ Ni 1.450000
 d 1.000000
 illum 1
 map_Kd Pinetree_D.png
-map_d Pinetree_D.png
+map_Kn Pinetree_N.png
+map_Ks Pinetree_S.png

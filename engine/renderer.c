@@ -103,7 +103,7 @@ static void init_g_buffer(int width, int height) {
   // color buffer
   glGenTextures(1, &renderer_g_albedo);
   glBindTexture(GL_TEXTURE_2D, renderer_g_albedo);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB_ALPHA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, renderer_g_albedo, 0);
@@ -183,15 +183,15 @@ void init_ssao(int width, int height) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 }
 
-void init_fxaa(int width, int height) {
-  glGenFramebuffers(1, &renderer_fxaa_fbo);
-  glBindFramebuffer(GL_FRAMEBUFFER, renderer_fxaa_fbo);
-  glGenTextures(1, &renderer_fxaa_texture);
-  glBindTexture(GL_TEXTURE_2D, renderer_fxaa_texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+void init_post(int width, int height) {
+  glGenFramebuffers(1, &renderer_post_fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, renderer_post_fbo);
+  glGenTextures(1, &renderer_post_texture);
+  glBindTexture(GL_TEXTURE_2D, renderer_post_texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, renderer_fxaa_texture, 0);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, renderer_post_texture, 0);
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
     printf("[renderer] error: FXAA Framebuffer not complete\n");
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -247,7 +247,7 @@ int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow
 
   init_ssao(width, height);
 
-  init_fxaa(width, height);
+  init_post(width, height);
 
   // init depth fbo
   init_depth_fbo();
@@ -271,7 +271,7 @@ void renderer_recompile_shader() {
   shader_compile("../engine/shaders/skybox.vs", "../engine/shaders/skybox.fs", &renderer_skybox_shader);
   shader_compile("../engine/shaders/ssao.vs", "../engine/shaders/ssao.fs", &renderer_ssao_shader);
   shader_compile("../engine/shaders/ssao.vs", "../engine/shaders/blur.fs", &renderer_ssao_blur_shader);
-  shader_compile("../engine/shaders/fxaa.vs", "../engine/shaders/fxaa.fs", &renderer_fxaa_shader);
+  shader_compile("../engine/shaders/post.vs", "../engine/shaders/post.fs", &renderer_post_shader);
 }
 
 int renderer_should_close() {
@@ -610,7 +610,9 @@ void renderer_render_objects(object* objects[], int objects_length, light* sun, 
 
   // move sun with camera
   vec3 sun_cam_pos;
-  vec3_add(sun_cam_pos, camera->pos, sun->position);
+  sun_cam_pos[0] = camera->pos[0] + sun->position[0];
+  sun_cam_pos[1] = sun->position[1];
+  sun_cam_pos[2] = camera->pos[2] + sun->position[2];
 
   mat4_look_at(light_view, sun_cam_pos, sun_target, up);
   mat4_mul(light_space, light_proj, light_view);
@@ -703,7 +705,7 @@ void renderer_render_objects(object* objects[], int objects_length, light* sun, 
   /*------------------------------lighting pass------------------------------*/
   /*-------------------------------------------------------------------------*/
   // 2. lighting pass: calculate lighting by iterating over a screen filled quad pixel-by-pixel using gbuffer
-  glBindFramebuffer(GL_FRAMEBUFFER, renderer_fxaa_fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, renderer_post_fbo);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   glUseProgram(renderer_lighting_shader);
@@ -731,12 +733,12 @@ void renderer_render_objects(object* objects[], int objects_length, light* sun, 
   sprintf(uniform_light_color, "lightsColors[%d]", 0);
   char uniform_light_type[256];
   sprintf(uniform_light_type, "lightsType[%d]", 0);
-  glUniform3fv(glGetUniformLocation(renderer_lighting_shader, uniform_light_pos), 1, (const GLfloat*) lights[0]->position);
-  glUniform3fv(glGetUniformLocation(renderer_lighting_shader, uniform_light_color), 1, (const GLfloat*) lights[0]->color);
-  glUniform1i(glGetUniformLocation(renderer_lighting_shader, uniform_light_type), lights[0]->type);
+  glUniform3fv(glGetUniformLocation(renderer_lighting_shader, uniform_light_pos), 1, (const GLfloat*) sun->position);
+  glUniform3fv(glGetUniformLocation(renderer_lighting_shader, uniform_light_color), 1, (const GLfloat*) sun->color);
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, uniform_light_type), sun->type);
 
   // lights
-  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "lightsNr"), lights_length);
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "lightsNr"), lights_length + 1);
   for (int i = 1; i < lights_length; i++) {
     char uniform_light_pos[256];
     sprintf(uniform_light_pos, "lightsPos[%d]", i+1);
@@ -791,16 +793,16 @@ void renderer_render_objects(object* objects[], int objects_length, light* sun, 
   /*-------------------------------------------------------------------------*/
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glClear(GL_COLOR_BUFFER_BIT);
-  glUseProgram(renderer_fxaa_shader);
+  glUseProgram(renderer_post_shader);
 
   // pass window size
-  glUniform1i(glGetUniformLocation(renderer_fxaa_shader, "fxaa_enabled"), renderer_fxaa_enabled);
-  glUniform1i(glGetUniformLocation(renderer_fxaa_shader, "width"), width);
-  glUniform1i(glGetUniformLocation(renderer_fxaa_shader, "height"), height);
+  glUniform1i(glGetUniformLocation(renderer_post_shader, "fxaa_enabled"), renderer_fxaa_enabled);
+  glUniform1i(glGetUniformLocation(renderer_post_shader, "width"), width);
+  glUniform1i(glGetUniformLocation(renderer_post_shader, "height"), height);
 
-  glUniform1i(glGetUniformLocation(renderer_fxaa_shader, "frame"), 0);
+  glUniform1i(glGetUniformLocation(renderer_post_shader, "frame"), 0);
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, renderer_fxaa_texture);
+  glBindTexture(GL_TEXTURE_2D, renderer_post_texture);
 
   render_quad();
   glBindFramebuffer(GL_FRAMEBUFFER, 0);

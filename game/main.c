@@ -14,7 +14,7 @@ int main()
   }
 
   // devmode ON
-  glfwSetWindowPos(window, -1400, 100);
+  // glfwSetWindowPos(window, -1400, 100);
 
   // Init audio
   if (audio_init() < 0) {

@@ -35,11 +35,16 @@ void game_init(GLFWwindow* w) {
   // sun
   sun.type = DIRECTIONAL;
   sun.position[0] = 0;
-  sun.position[1] = 15;
-  sun.position[2] = -20;
+  sun.position[1] = 40;
+  sun.position[2] = -10;
   sun.dir[0] = 0;
   sun.dir[1] = 0;
   sun.dir[2] = 0;
+
+  float light_s = 2;
+  sun.color[0] = light_s * 1.0f;
+  sun.color[1] = light_s * 0.86f;
+  sun.color[2] = light_s * 0.53f;
 
   // lights
   lights = malloc(MAX_LIGHTS * sizeof(light));
@@ -48,9 +53,6 @@ void game_init(GLFWwindow* w) {
   l1.position[0] = 0.0f;
   l1.position[1] = 4.0f;
   l1.position[2] = 0.0f;
-  l1.color[0] = 1.0f;
-  l1.color[1] = 1.0f;
-  l1.color[2] = 1.0f;
 
   lights[0] = l1;
   num_lights = 1;
@@ -197,6 +199,8 @@ void game_init(GLFWwindow* w) {
   rock->receive_shadows = 0;
   renderer_init_object(rock);
 
+  max = 30;
+  min = -30;
   for (int i = 0; i < MAX_ROCKS; i++) {
     memcpy(&rocks[i], rock, sizeof(object));
     rocks[i].scale = random_range(0.5, 1);
@@ -365,7 +369,7 @@ void game_render() {
   render_list_add(game_render_list, wall);
 
   // render
-  renderer_render_objects(game_render_list->objects, game_render_list->size, &sun, &lights, num_lights, &game_camera, ui_render, &sky);
+  renderer_render_objects(game_render_list->objects, game_render_list->size, &sun, &lights, 0, &game_camera, ui_render, &sky);
 }
 
 void game_free() {

@@ -1,5 +1,5 @@
 #version 330 core
-#define NR_LIGHTS 4
+#define MAX_LIGHTS 4
 
 out vec4 FragColor;
 
@@ -13,9 +13,9 @@ uniform sampler2D gSpec;
 uniform sampler2D ssao;
 
 // lights
-uniform vec3 lightsPos[NR_LIGHTS]; 
-uniform vec3 lightsColors[NR_LIGHTS];
-uniform vec3 lightsType[NR_LIGHTS];
+uniform vec3 lightsPos[MAX_LIGHTS]; 
+uniform vec3 lightsColors[MAX_LIGHTS];
+uniform vec3 lightsType[MAX_LIGHTS];
 uniform int lightsNr;
 
 // camera
@@ -75,15 +75,19 @@ float shadowCalculation(vec4 fragPosLightSpace, vec3 lightDir, vec3 normal) {
 void main()
 {             
   // retrieve data from gbuffer
-  vec3 FragPos = texture(gPosition, TexCoords).rgb;
+  vec3 FragPos = texture(gPosition, TexCoords).rgb; // FragPos in view space!
   vec3 Normal = texture(gNormal, TexCoords).rgb;
   vec3 Diffuse = texture(gAlbedo, TexCoords).rgb;
   float Specular = texture(gSpec, TexCoords).r;
 
+  // FragColor = vec4(Normal, 1.0);
+  // return;
+
   // receive shadow in the gBuffer (gPosition, alpha channel)
   float receive_shadows = texture(gPosition, TexCoords).a;
 
-  vec4 fragPosLightSpace = lightSpaceMatrix * viewInv * vec4(FragPos, 1.0);
+  vec4 fragPosWorldSpace = viewInv * vec4(FragPos, 1.0);
+  vec4 fragPosLightSpace = lightSpaceMatrix * fragPosWorldSpace;
 
   float ao = 1.0;
   if (ssao_enabled > 0) {
@@ -96,13 +100,13 @@ void main()
   }
 
   // then calculate lighting as usual
-  vec3 ambient = vec3(1 * Diffuse * ao);
+  vec3 ambient = vec3(1.0 * Diffuse * ao);
   vec3 lighting  = ambient; 
   vec3 viewDir  = normalize(-FragPos); // viewpos is (0.0.0)
 
-  for (int i = 0; i < NR_LIGHTS; i++) {
+  for (int i = 0; i < max(lightsNr, MAX_LIGHTS); i++) {
     // diffuse
-    vec3 lightDir = normalize(lightsPos[i] - FragPos);
+    vec3 lightDir = normalize(lightsPos[i] - fragPosWorldSpace.xyz);
     vec3 diffuse = max(dot(Normal, lightDir), 0.0) * Diffuse * lightsColors[i];
     // specular
     vec3 halfwayDir = normalize(lightDir + viewDir);  

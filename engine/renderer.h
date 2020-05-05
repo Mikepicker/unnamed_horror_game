@@ -24,7 +24,7 @@ GLuint renderer_debug_shader;
 GLuint renderer_skybox_shader;
 GLuint renderer_ssao_shader;
 GLuint renderer_ssao_blur_shader;
-GLuint renderer_fxaa_shader;
+GLuint renderer_post_shader;
 
 GLuint renderer_depth_fbo;
 GLuint renderer_depth_map;
@@ -51,8 +51,8 @@ int renderer_ssao_debug_on;
 
 // fxaa
 int renderer_fxaa_enabled;
-GLuint renderer_fxaa_fbo;
-GLuint renderer_fxaa_texture;
+GLuint renderer_post_fbo;
+GLuint renderer_post_texture;
 
 int renderer_shadows_debug_enabled;
 int renderer_render_aabb;

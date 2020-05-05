@@ -51,6 +51,7 @@ void main() {
   gNormal = hasNormalMap == 1 ? computeNormal() : normalize(Normal);
   // and the diffuse per-fragment color
   gAlbedo = hasDiffuseMap == 1 ? texture(texture_diffuse, TexCoords * texture_subdivision).rgba : vec4(material.diffuse.rgb, 1.0);
+  gAlbedo.rgb *= material.diffuse;
 
   if (gAlbedo.a < 0.1)
     discard;

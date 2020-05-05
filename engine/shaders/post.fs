@@ -4,6 +4,7 @@
 #define MUL_REDUCE 1 / 8.0
 #define MIN_REDUCE 1 / 128.0
 #define MAX_SPAN 8
+#define GAMMA 2.2
 
 in vec2 TexCoords;
 out vec3 FragColor;
@@ -15,21 +16,10 @@ uniform int height;
 
 uniform int fxaa_enabled;
 
-void main() {
-
-  //FragColor = texture(frame, TexCoords).rgb;
-  //return;
-
-  // TODO: uniforms
+vec3 fxaa() {
   vec2 u_texelStep = vec2(1 / width, 1 / height);
 
   vec3 rgbM = texture(frame, TexCoords).rgb;
-
-  // Possibility to toggle FXAA on and off.
-  if (fxaa_enabled == 0) {
-    FragColor = rgbM;
-    return;
-  }
 
   // Sampling neighbour texels. Offsets are adapted to OpenGL texture coordinates. 
   vec3 rgbNW = textureOffset(frame, TexCoords, ivec2(-1, 1)).rgb;
@@ -54,8 +44,7 @@ void main() {
   // If contrast is lower than a maximum threshold ...
   if (lumaMax - lumaMin <= lumaMax * LUMA_THRESHOLD) {
     // ... do no AA and return.
-    FragColor = rgbM;
-    return;
+    return rgbM;
   }
 
   // Sampling is done along the gradient.
@@ -91,12 +80,48 @@ void main() {
   // Are outer samples of the tab beyond the edge ... 
   if (lumaFourTab < lumaMin || lumaFourTab > lumaMax) {
     // ... yes, so use only two samples.
-    FragColor = rgbTwoTab; 
+    return rgbTwoTab; 
   }
   else {
     // ... no, so use four samples. 
-    FragColor = rgbFourTab;
+    return rgbFourTab;
   }
 
   // FragColor.r = 1.0;
+}
+
+vec3 uncharted2Tonemap(vec3 x) {
+	const float A = 0.15;
+	const float B = 0.50;
+	const float C = 0.10;
+	const float D = 0.20;
+	const float E = 0.02;
+	const float F = 0.30;
+	return ((x * (A * x + C * B) + D * E) / (x * (A * x + B) + D * F)) - E / F;
+}
+
+vec3 acesFilmTonemap(vec3 x) {
+    const float a = 2.51;
+    const float b = 0.03;
+    const float c = 2.43;
+    const float d = 0.59;
+    const float e = 0.14;
+    return clamp((x * (a * x + b)) / (x * (c * x + d ) + e), 0.0, 1.0);
+}
+
+vec3 reinhardTonemap(vec3 x) {
+  return x / (x + vec3(1.0));
+  // return vec3(1.0) - exp(-x);
+}
+
+void main() {
+  FragColor = texture(frame, TexCoords).rgb;
+
+  // Possibility to toggle FXAA on and off.
+  if (fxaa_enabled == 1) {
+    FragColor = fxaa(); 
+  }
+
+  FragColor = acesFilmTonemap(FragColor);
+  // FragColor = pow(FragColor, vec3(1.0 / GAMMA));
 }
