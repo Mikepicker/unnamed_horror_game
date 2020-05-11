@@ -231,7 +231,7 @@ int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow
   // init vars
   renderer_render_aabb = 0;
   renderer_shadow_near = 1.0f;
-  renderer_shadow_far = 40.0f;
+  renderer_shadow_far = 80.0f;
   renderer_shadow_size = 100.0f;
   renderer_vao = 0;
   renderer_shadows_debug_enabled = 0;
