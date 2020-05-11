@@ -1,8 +1,8 @@
 #version 330 core
 
 #define LUMA_THRESHOLD 0.5
-#define MUL_REDUCE 1 / 8.0
-#define MIN_REDUCE 1 / 128.0
+#define MUL_REDUCE (1 / 8.0)
+#define MIN_REDUCE (1 / 128.0)
 #define MAX_SPAN 8
 #define GAMMA 2.2
 
@@ -80,14 +80,14 @@ vec3 fxaa() {
   // Are outer samples of the tab beyond the edge ... 
   if (lumaFourTab < lumaMin || lumaFourTab > lumaMax) {
     // ... yes, so use only two samples.
+    // rgbTwoTab.r = 1.0;
     return rgbTwoTab; 
   }
   else {
     // ... no, so use four samples. 
+    // rgbFourTab.r = 1.0;
     return rgbFourTab;
   }
-
-  // FragColor.r = 1.0;
 }
 
 vec3 uncharted2Tonemap(vec3 x) {

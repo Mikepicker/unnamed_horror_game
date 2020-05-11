@@ -577,6 +577,28 @@ static void calculate_world_transform(object* o) {
   o->calculate_transform = 0;
 }
 
+void pass_light_uniform(int light_index, light* l, mat4 view, GLuint shader_id) {
+  char uniform_light_pos[256];
+  sprintf(uniform_light_pos, "lightsPos[%d]", light_index);
+  char uniform_light_color[256];
+  sprintf(uniform_light_color, "lightsColors[%d]", light_index);
+  char uniform_light_type[256];
+  sprintf(uniform_light_type, "lightsType[%d]", light_index);
+
+  // light pos in view space
+  vec4 light_pos;
+  light_pos[0] = l->position[0];
+  light_pos[1] = l->position[1];
+  light_pos[2] = l->position[2];
+  light_pos[3] = 1.0f;
+  vec4 light_pos_view;
+  mat4_mul_vec4(light_pos_view, view, light_pos);
+
+  glUniform3fv(glGetUniformLocation(shader_id, uniform_light_pos), 1, (const GLfloat*) light_pos_view);
+  glUniform3fv(glGetUniformLocation(shader_id, uniform_light_color), 1, (const GLfloat*) l->color);
+  glUniform1i(glGetUniformLocation(shader_id, uniform_light_type), l->type);
+}
+
 void renderer_render_objects(object* objects[], int objects_length, light* sun, light* lights[], int lights_length, camera* camera, void (*ui_render_callback)(void), skybox* sky)
 {
   GLint time;
@@ -727,28 +749,12 @@ void renderer_render_objects(object* objects[], int objects_length, light* sun, 
   glUniform3fv(uniform_camera_pos, 1, (const GLfloat*) camera->pos);
 
   // pass sun as light
-  char uniform_light_pos[256];
-  sprintf(uniform_light_pos, "lightsPos[%d]", 0);
-  char uniform_light_color[256];
-  sprintf(uniform_light_color, "lightsColors[%d]", 0);
-  char uniform_light_type[256];
-  sprintf(uniform_light_type, "lightsType[%d]", 0);
-  glUniform3fv(glGetUniformLocation(renderer_lighting_shader, uniform_light_pos), 1, (const GLfloat*) sun->position);
-  glUniform3fv(glGetUniformLocation(renderer_lighting_shader, uniform_light_color), 1, (const GLfloat*) sun->color);
-  glUniform1i(glGetUniformLocation(renderer_lighting_shader, uniform_light_type), sun->type);
+  pass_light_uniform(0, sun, v, renderer_lighting_shader);
 
   // lights
   glUniform1i(glGetUniformLocation(renderer_lighting_shader, "lightsNr"), lights_length + 1);
   for (int i = 1; i < lights_length; i++) {
-    char uniform_light_pos[256];
-    sprintf(uniform_light_pos, "lightsPos[%d]", i+1);
-    char uniform_light_color[256];
-    sprintf(uniform_light_color, "lightsColors[%d]", i+1);
-    char uniform_light_type[256];
-    sprintf(uniform_light_type, "lightsType[%d]", i+1);
-    glUniform3fv(glGetUniformLocation(renderer_lighting_shader, uniform_light_pos), 1, (const GLfloat*) lights[i]->position);
-    glUniform3fv(glGetUniformLocation(renderer_lighting_shader, uniform_light_color), 1, (const GLfloat*) lights[i]->color);
-    glUniform1i(glGetUniformLocation(renderer_lighting_shader, uniform_light_type), lights[i]->type);
+    pass_light_uniform(i, lights[i], v, renderer_lighting_shader);
   }
 
   // shadow map to shader

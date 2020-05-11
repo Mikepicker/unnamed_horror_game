@@ -81,6 +81,7 @@ void main()
   float Specular = texture(gSpec, TexCoords).r;
 
   // FragColor = vec4(Normal, 1.0);
+  // FragColor = vec4(FragPos, 1.0);
   // return;
 
   // receive shadow in the gBuffer (gPosition, alpha channel)
@@ -106,7 +107,7 @@ void main()
 
   for (int i = 0; i < max(lightsNr, MAX_LIGHTS); i++) {
     // diffuse
-    vec3 lightDir = normalize(lightsPos[i] - fragPosWorldSpace.xyz);
+    vec3 lightDir = normalize(lightsPos[i] - FragPos);
     vec3 diffuse = max(dot(Normal, lightDir), 0.0) * Diffuse * lightsColors[i];
     // specular
     vec3 halfwayDir = normalize(lightDir + viewDir);  
