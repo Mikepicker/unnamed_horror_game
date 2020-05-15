@@ -14,8 +14,8 @@ uniform int screenHeight;
 uniform vec3 samples[SSAO_MAX_KERNEL_SIZE];
 
 // parameters (you'd probably want to use them as uniforms to more easily tweak the effect)
-float radius = 0.5;
-float bias = 0.025;
+float radius = 1.5;
+float bias = 0.0025;
 
 uniform mat4 projection;
 

@@ -117,11 +117,14 @@ vec3 reinhardTonemap(vec3 x) {
 void main() {
   FragColor = texture(frame, TexCoords).rgb;
 
-  // Possibility to toggle FXAA on and off.
+  // Toggle FXAA on and off.
   if (fxaa_enabled == 1) {
     FragColor = fxaa(); 
   }
 
+  // Tonemap
   FragColor = acesFilmTonemap(FragColor);
-  // FragColor = pow(FragColor, vec3(1.0 / GAMMA));
+
+  // Gamma correction
+  FragColor = pow(FragColor, vec3(1.0 / GAMMA));
 }
