@@ -117,6 +117,10 @@ void ui_render() {
     char item_pos[256];
     snprintf(item_pos, 256, "garand: %f %f %f\n", garand->position[0], garand->position[1], garand->position[2]);
     nk_label(ctx, item_pos, NK_TEXT_LEFT);
+
+    char ui_fps[256];
+    snprintf(ui_fps, 256, "fps: %f\n", fps);
+    nk_label(ctx, ui_fps, NK_TEXT_LEFT);
   }
   nk_end(ctx);
 

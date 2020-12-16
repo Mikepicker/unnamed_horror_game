@@ -5,8 +5,8 @@
 #include "ui.h"
 #include "input.h"
 
-#define GAME_WIDTH 1024
-#define GAME_HEIGHT 768
+#define GAME_WIDTH 1080
+#define GAME_HEIGHT 720
 
 #define MAX_CUBES 128
 #define MAX_TREES 10
@@ -37,14 +37,19 @@ camera game_camera;
 render_list* game_render_list;
 float delta_time;
 float last_frame;
+float fps;
 
 // sun
+//object* sun_sphere;
 light sun;
 
 light* lights;
 int num_lights;
 // ALuint sound_car;
 enum game_state state;
+
+// point light
+light point_light;
 
 // skybox
 skybox sky;

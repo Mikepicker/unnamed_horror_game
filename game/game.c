@@ -35,26 +35,40 @@ void game_init(GLFWwindow* w) {
   // sun
   sun.type = DIRECTIONAL;
   sun.position[0] = 0;
-  sun.position[1] = 40;
+  sun.position[1] = 60;
   sun.position[2] = -10;
-  sun.dir[0] = 0;
-  sun.dir[1] = 0;
-  sun.dir[2] = 0;
+  sun.dir[0] = -0.2f;
+  sun.dir[1] = -1.0f;
+  sun.dir[2] = -0.3f;
 
-  float light_s = 2;
+  float light_s = 1;
   sun.color[0] = light_s * 1.0f;
   sun.color[1] = light_s * 0.86f;
   sun.color[2] = light_s * 0.53f;
+  /*sun.ambient = 0.0f;
+  sun.color[0] = 0.0;
+  sun.color[1] = 0.0;
+  sun.color[2] = 0.0;*/
+
+  //sun_sphere = factory_create_sphere(5, 10, 10);
+  //vec3_copy(sun_sphere->position, sun.position);
+
+  // point light
+  point_light.type = POINT;
+  point_light.position[0] = 0;
+  point_light.position[1] = 0;
+  point_light.position[2] = 0;
+  point_light.ambient = 0.5;
+  point_light.constant = 1.0;
+  point_light.linear = 0.09;
+  point_light.quadratic = 0.032;
+  point_light.color[0] = 1.0;
+  point_light.color[1] = 1.0;
+  point_light.color[2] = 1.0;
 
   // lights
   lights = malloc(MAX_LIGHTS * sizeof(light));
-  light l1;
-  l1.type = POINT;
-  l1.position[0] = 0.0f;
-  l1.position[1] = 4.0f;
-  l1.position[2] = 0.0f;
-
-  lights[0] = l1;
+  lights[0] = point_light;
   num_lights = 1;
 
   // skybox
@@ -301,6 +315,7 @@ void game_update() {
   float current_frame = glfwGetTime();
   delta_time = current_frame - last_frame;
   last_frame = current_frame;
+  fps = 1 / delta_time;
 
   input_update();
 
@@ -321,31 +336,17 @@ void game_update() {
 }
 
 void game_render() {
+  // point light
+  vec3_copy(point_light.position, character.o->position);
+
   // render entities
   render_list_clear(game_render_list);
 
+  // render sun sphere
+  // render_list_add(game_render_list, sun_sphere);
+
   // render_list_add(microdrag.game_render_list, sphere);
   render_list_add(game_render_list, ground);
-
-  // TODO: improve performance for alive lookup
-  for (int i = 0; i < MAX_CUBES; i++) {
-    if (cubes[i].alive) {
-      vec3 dist;
-      vec3_sub(dist, cubes[i].o->position, game_camera.pos);
-      if (vec3_len(dist) < FOV) {
-        render_list_add(game_render_list, cubes[i].o);
-      }
-    }
-  }
-
-  // select cube
-  vec3_scale(place_target, game_camera.front, 4);
-  vec3_add(place_target, place_target, game_camera.pos);
-  place_target[0] = round(place_target[0]);
-  place_target[1] = round(place_target[1]);
-  place_target[2] = round(place_target[2]);
-  vec3_copy(select_cube->position, place_target);
-  // render_list_add(game_render_list, select_cube);
 
   // render character
   render_list_add(game_render_list, character.o);
@@ -369,7 +370,7 @@ void game_render() {
   render_list_add(game_render_list, wall);
 
   // render
-  renderer_render_objects(game_render_list->objects, game_render_list->size, &sun, &lights, 0, &game_camera, ui_render, &sky);
+  renderer_render_objects(game_render_list->objects, game_render_list->size, &sun, &lights, 1, &game_camera, ui_render, &sky);
 }
 
 void game_free() {

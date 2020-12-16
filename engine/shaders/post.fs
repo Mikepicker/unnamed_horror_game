@@ -100,6 +100,11 @@ vec3 uncharted2Tonemap(vec3 x) {
 	return ((x * (A * x + C * B) + D * E) / (x * (A * x + B) + D * F)) - E / F;
 }
 
+vec3 tonemapFilmic(vec3 color) {
+	vec3 x = max(vec3(0.0), color - 0.004);
+	return (x * (6.2 * x + 0.5)) / (x * (6.2 * x + 1.7) + 0.06);
+}
+
 vec3 acesFilmTonemap(vec3 x) {
     const float a = 2.51;
     const float b = 0.03;
@@ -123,8 +128,9 @@ void main() {
   }
 
   // Tonemap
-  FragColor = acesFilmTonemap(FragColor);
-
+  // FragColor = acesFilmTonemap(FragColor);
+  // FragColor = tonemapFilmic(FragColor);
+  
   // Gamma correction
-  FragColor = pow(FragColor, vec3(1.0 / GAMMA));
+  // FragColor = pow(FragColor, vec3(1.0 / GAMMA));
 }

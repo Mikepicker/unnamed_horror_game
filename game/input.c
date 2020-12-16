@@ -57,6 +57,11 @@ void input_key_callback(GLFWwindow* window, int key, int scancode, int action, i
   // debug ssao
   if (key == GLFW_KEY_K && action == GLFW_PRESS)
     renderer_ssao_debug_on = renderer_ssao_debug_on == 0 ? 1 : 0;
+
+  // debug fxaa
+  if (key == GLFW_KEY_L && action == GLFW_PRESS)
+    renderer_fxaa_enabled = renderer_fxaa_enabled == 0 ? 1 : 0;
+  
   
   // capture mouse
   if (action == GLFW_RELEASE) {

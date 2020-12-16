@@ -103,7 +103,7 @@ static void init_g_buffer(int width, int height) {
   // color buffer
   glGenTextures(1, &renderer_g_albedo);
   glBindTexture(GL_TEXTURE_2D, renderer_g_albedo);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB_ALPHA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, renderer_g_albedo, 0);
@@ -578,12 +578,22 @@ static void calculate_world_transform(object* o) {
 }
 
 void pass_light_uniform(int light_index, light* l, mat4 view, GLuint shader_id) {
-  char uniform_light_pos[256];
-  sprintf(uniform_light_pos, "lightsPos[%d]", light_index);
-  char uniform_light_color[256];
-  sprintf(uniform_light_color, "lightsColors[%d]", light_index);
   char uniform_light_type[256];
-  sprintf(uniform_light_type, "lightsType[%d]", light_index);
+  sprintf(uniform_light_type, "lights[%d].type", light_index);
+  char uniform_light_pos[256];
+  sprintf(uniform_light_pos, "lights[%d].position", light_index);
+  char uniform_light_color[256];
+  sprintf(uniform_light_color, "lights[%d].color", light_index);
+  char uniform_light_ambient[256];
+  sprintf(uniform_light_ambient, "lights[%d].ambient", light_index);
+  char uniform_light_dir[256];
+  sprintf(uniform_light_dir, "lights[%d].dir", light_index);
+  char uniform_light_constant[256];
+  sprintf(uniform_light_constant, "lights[%d].constant", light_index);
+  char uniform_light_linear[256];
+  sprintf(uniform_light_linear, "lights[%d].linear", light_index);
+  char uniform_light_quadratic[256];
+  sprintf(uniform_light_quadratic, "lights[%d].quadratic", light_index);
 
   // light pos in view space
   vec4 light_pos;
@@ -594,9 +604,14 @@ void pass_light_uniform(int light_index, light* l, mat4 view, GLuint shader_id) 
   vec4 light_pos_view;
   mat4_mul_vec4(light_pos_view, view, light_pos);
 
+  glUniform1i(glGetUniformLocation(shader_id, uniform_light_type), l->type);
   glUniform3fv(glGetUniformLocation(shader_id, uniform_light_pos), 1, (const GLfloat*) light_pos_view);
   glUniform3fv(glGetUniformLocation(shader_id, uniform_light_color), 1, (const GLfloat*) l->color);
-  glUniform1i(glGetUniformLocation(shader_id, uniform_light_type), l->type);
+  glUniform3fv(glGetUniformLocation(shader_id, uniform_light_dir), 1, (const GLfloat*) l->dir);
+  glUniform1f(glGetUniformLocation(shader_id, uniform_light_ambient), l->ambient);
+  glUniform1f(glGetUniformLocation(shader_id, uniform_light_constant), l->constant);
+  glUniform1f(glGetUniformLocation(shader_id, uniform_light_linear), l->linear);
+  glUniform1f(glGetUniformLocation(shader_id, uniform_light_quadratic), l->quadratic);
 }
 
 void renderer_render_objects(object* objects[], int objects_length, light* sun, light* lights[], int lights_length, camera* camera, void (*ui_render_callback)(void), skybox* sky)
@@ -627,16 +642,13 @@ void renderer_render_objects(object* objects[], int objects_length, light* sun, 
   mat4_ortho(light_proj, -renderer_shadow_size, renderer_shadow_size, -renderer_shadow_size, renderer_shadow_size, renderer_shadow_near, renderer_shadow_far);
   vec3 up = { 0.0f, 0.0f, 1.0f };
 
-  vec3 sun_target;
-  vec3_add(sun_target, sun->dir, camera->pos);
-
   // move sun with camera
   vec3 sun_cam_pos;
   sun_cam_pos[0] = camera->pos[0] + sun->position[0];
   sun_cam_pos[1] = sun->position[1];
   sun_cam_pos[2] = camera->pos[2] + sun->position[2];
 
-  mat4_look_at(light_view, sun_cam_pos, sun_target, up);
+  mat4_look_at(light_view, sun_cam_pos, sun->dir, up);
   mat4_mul(light_space, light_proj, light_view);
 
   // render scene from light's point of view
@@ -753,8 +765,8 @@ void renderer_render_objects(object* objects[], int objects_length, light* sun, 
 
   // lights
   glUniform1i(glGetUniformLocation(renderer_lighting_shader, "lightsNr"), lights_length + 1);
-  for (int i = 1; i < lights_length; i++) {
-    pass_light_uniform(i, lights[i], v, renderer_lighting_shader);
+  for (int i = 0; i < lights_length; i++) {
+    pass_light_uniform(i+1, lights[i], v, renderer_lighting_shader);
   }
 
   // shadow map to shader

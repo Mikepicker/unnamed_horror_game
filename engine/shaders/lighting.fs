@@ -13,9 +13,19 @@ uniform sampler2D gSpec;
 uniform sampler2D ssao;
 
 // lights
-uniform vec3 lightsPos[MAX_LIGHTS]; 
-uniform vec3 lightsColors[MAX_LIGHTS];
-uniform vec3 lightsType[MAX_LIGHTS];
+struct Light {
+  int type;
+  vec3 position;
+  vec3 color;
+  vec3 dir;
+  float ambient;
+  float constant;
+  float linear;
+  float quadratic;
+};
+
+uniform Light lights[MAX_LIGHTS];
+
 uniform int lightsNr;
 
 // camera
@@ -72,6 +82,51 @@ float shadowCalculation(vec4 fragPosLightSpace, vec3 lightDir, vec3 normal) {
   return shadow;
 }
 
+vec3 calcDirLight(Light l, vec3 diffuse, float specular, vec3 normal, float ao, vec3 viewDir, vec4 fragPosLightSpace, float receive_shadows) {
+  vec3 lightDir = normalize(-l.dir);
+  
+  // ambient
+  vec3 lAmbient = vec3(l.ambient * diffuse * ao);
+
+  // diffuse
+  vec3 lDiffuse = max(dot(normal, lightDir), 0.0) * diffuse * l.color;
+
+  // specular
+  vec3 halfwayDir = normalize(lightDir + viewDir);  
+  float spec = pow(max(dot(normal, halfwayDir), 0.0), 8.0);
+  vec3 lSpecular = specular * l.color * spec;
+
+  float shadow = 0.0;
+  if (receive_shadows > 0) {
+    shadow = shadowCalculation(fragPosLightSpace, lightDir, normal);
+  }
+
+  return lAmbient + (1.0 - shadow) * (lDiffuse + lSpecular);
+}
+
+vec3 calcPointLight(Light l, vec3 diffuse, float specular, vec3 normal, float ao, vec3 viewDir, vec3 fragPos) {
+  vec3 lightDir = normalize(l.position - fragPos);
+  
+  // ambient
+  vec3 lAmbient = vec3(l.ambient * diffuse * ao);
+
+  // diffuse
+  vec3 lDiffuse = max(dot(normal, lightDir), 0.0) * diffuse * l.color;
+
+  // specular
+  vec3 halfwayDir = normalize(lightDir + viewDir);  
+  float spec = pow(max(dot(normal, halfwayDir), 0.0), 8.0);
+  vec3 lSpecular = specular * l.color * spec;
+
+  float distance = length(l.position - fragPos);
+  float attenuation = 1.0 / (1.0 + l.linear * distance + l.quadratic * distance * distance);
+  lAmbient *= attenuation;
+  lDiffuse *= attenuation;
+  lSpecular *= attenuation;
+
+  return lAmbient + lDiffuse + lSpecular;
+}
+
 void main()
 {             
   // retrieve data from gbuffer
@@ -80,9 +135,9 @@ void main()
   vec3 Diffuse = texture(gAlbedo, TexCoords).rgb;
   float Specular = texture(gSpec, TexCoords).r;
 
-  // FragColor = vec4(Normal, 1.0);
+  // FragColor = vec4(Normal, 1.0); return;
   // FragColor = vec4(FragPos, 1.0);
-  // return;
+  // FragColor = vec4(1.0) * Specular;
 
   // receive shadow in the gBuffer (gPosition, alpha channel)
   float receive_shadows = texture(gPosition, TexCoords).a;
@@ -101,32 +156,17 @@ void main()
   }
 
   // then calculate lighting as usual
-  vec3 ambient = vec3(1.0 * Diffuse * ao);
-  vec3 lighting  = ambient; 
+  vec3 lighting  = vec3(0);
   vec3 viewDir  = normalize(-FragPos); // viewpos is (0.0.0)
 
-  for (int i = 0; i < max(lightsNr, MAX_LIGHTS); i++) {
-    // diffuse
-    vec3 lightDir = normalize(lightsPos[i] - FragPos);
-    vec3 diffuse = max(dot(Normal, lightDir), 0.0) * Diffuse * lightsColors[i];
-    // specular
-    vec3 halfwayDir = normalize(lightDir + viewDir);  
-    float spec = pow(max(dot(Normal, halfwayDir), 0.0), 8.0);
-    vec3 specular = Specular * lightsColors[i] * spec;
+  for (int i = 0; i < min(lightsNr, MAX_LIGHTS); i++) {
 
-    // attenuation
-    /* float distance = length(light.Position - FragPos);
-       float attenuation = 1.0 / (1.0 + light.Linear * distance + light.Quadratic * distance * distance);
-       diffuse *= attenuation;
-       specular *= attenuation; */
-
-    // shadows
-    float shadow = 0.0;
-    if (receive_shadows > 0) {
-      shadow = shadowCalculation(fragPosLightSpace, lightDir, Normal);
+    if (lights[i].type == 0) { // directional light
+      lighting += calcDirLight(lights[i], Diffuse, Specular, Normal, ao, viewDir, fragPosLightSpace, receive_shadows);
+    } else if (lights[i].type == 1) { // point light
+      lighting += calcPointLight(lights[i], Diffuse, Specular, Normal, ao, viewDir, FragPos);
     }
 
-    lighting += (1.0 - shadow) * (diffuse + specular);
   }
 
   FragColor = vec4(lighting, 1.0);
