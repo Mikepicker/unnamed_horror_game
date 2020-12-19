@@ -26,7 +26,6 @@ void ui_init() {
    nk_glfw3_font_stash_end();}
 
  bg.r = 0.10f, bg.g = 0.18f, bg.b = 0.24f, bg.a = 1.0f;
- strncpy(ui_map_filename, "map", 4); 
 
  //ctx->style.window.background = nk_rgba(0,0,0,0);
  //ctx->style.window.fixed_background = nk_style_item_color(nk_rgba(0,0,0,0));

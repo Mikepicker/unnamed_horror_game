@@ -6,18 +6,12 @@
 
 #define AUDIO_MAX_BUFFERS 16
 
-ALCenum error;
 #define AUDIO_TEST_ERROR(_msg)		\
 	error = alGetError();		\
 	if (error != AL_NO_ERROR) {	\
 		fprintf(stderr, _msg "\n");	\
 		return -1;		\
 	}
-
-ALCdevice* audio_device;
-ALCcontext* audio_context;
-ALuint audio_buffers[AUDIO_MAX_BUFFERS];
-int audio_buffers_count;
 
 int audio_init();
 int audio_load_sound(const char* filename, ALuint* out_buffer);

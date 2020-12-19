@@ -1,24 +1,6 @@
 #include "input.h"
 
-// TODO: improve performance
-int get_dead_cube_index() {
-  for (int i = 0; i < MAX_CUBES; i++) {
-    if (!cubes[i].alive) return i;
-  } 
-
-  return -1;
-}
-
-void place_cube() {
-  int i = get_dead_cube_index();
-
-  if (i >= 0) {
-    cubes[i].alive = 1;
-    vec3_copy(cubes[i].o->position, place_target);
-  } else {
-    printf("Too many cubes!");
-  }
-}
+input game_input;
 
 void input_init() {
   game_input.yaw = -90.0f;
@@ -46,9 +28,6 @@ void input_init() {
 void input_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
   if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
     glfwSetWindowShouldClose(window, GLFW_TRUE);
-
-  if (key == GLFW_KEY_H && action == GLFW_PRESS)
-    place_cube();
 
   // debug shadows
   if (key == GLFW_KEY_J && action == GLFW_PRESS)
@@ -117,7 +96,6 @@ void input_mouse_callback(GLFWwindow* window, double x_pos, double y_pos)
   game_camera.front[0] = cosf(game_input.yaw) * cosf(game_input.pitch);
   game_camera.front[1] = sinf(game_input.pitch);
   game_camera.front[2] = sinf(game_input.yaw) * cosf(game_input.pitch);
-  //debug_print_vec3(microdrag.game_camera.front);
 }
 
 void input_mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
@@ -131,11 +109,11 @@ void input_mouse_button_callback(GLFWwindow* window, int button, int action, int
     vec3_zero(p.p);
     p.n[0] = 0; p.n[1] = 1; p.n[2] = 0;
 
-    vec3 intersection;
+    /*vec3 intersection;
     if (physics_ray_hit_plane(r, p, intersection)) {
       vec3_scale(target_pos, intersection, 1/character.o->scale);
       character.state = MOVE;
-    }
+    }*/
   }
 }
 
@@ -161,16 +139,19 @@ void input_joystick_callback(int joy, int event) {
 }
 
 void input_update() {
-  // camera
+
+  // fps camera
   float camera_delta = game_camera.speed * delta_time;
   if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
     vec3 vec3_scaled;
     vec3_scale(vec3_scaled, game_camera.front, camera_delta);
+    vec3_scaled[1] = 0;
     vec3_add(game_camera.pos, game_camera.pos, vec3_scaled);
   }
   if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
     vec3 vec3_temp;
     vec3_scale(vec3_temp, game_camera.front, camera_delta);
+    vec3_temp[1] = 0;
     vec3_sub(game_camera.pos, game_camera.pos, vec3_temp);
   }
   if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {

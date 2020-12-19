@@ -1,6 +1,63 @@
 #include "game.h"
 
-void game_init(GLFWwindow* w) {
+camera game_camera;
+
+render_list* game_render_list;
+render_list* screen_render_list;
+float delta_time;
+float last_frame;
+float fps;
+
+// sun
+//object* sun_sphere;
+light sun;
+
+light* lights;
+int num_lights;
+// ALuint sound_car;
+enum game_state state;
+
+// light sphere
+object* sun_sphere;
+
+// point light
+light point_light;
+
+// skybox
+skybox sky;
+
+// ground
+object* ground;
+
+// where to place next cube
+vec3 place_target;
+
+// character
+entity character;
+vec3 target_pos;
+
+// sample enemy
+entity enemy;
+
+// sample item
+object* garand;
+
+// player
+object player_weapon;
+
+// wood wall
+object* wall;
+
+// materials
+material mat_stone;
+
+// nature
+object trees[MAX_TREES];
+object* tree_1;
+object rocks[MAX_ROCKS];
+object* rock;
+
+void game_init() {
   // game camera
   game_camera.front[0] = 0.0f;
   game_camera.front[1] = 0.0f;
@@ -13,15 +70,13 @@ void game_init(GLFWwindow* w) {
   game_camera.pos[2] = 9.0f;
   game_camera.speed = 10.0f;
   
-  // window
-  window = w;
-
   // game loop
   delta_time = 0.0f;
   last_frame = 0.0f;
 
   // render list
   game_render_list = render_list_new();
+  screen_render_list = render_list_new();
 
   // audio
   // audio_load_sound("assets/audio/test.wav", &microdrag.sound_car);
@@ -50,8 +105,9 @@ void game_init(GLFWwindow* w) {
   sun.color[1] = 0.0;
   sun.color[2] = 0.0;*/
 
-  //sun_sphere = factory_create_sphere(5, 10, 10);
-  //vec3_copy(sun_sphere->position, sun.position);
+  sun_sphere = factory_create_sphere(5, 10, 10);
+  vec3_copy(sun_sphere->position, sun.position);
+  renderer_init_object(sun_sphere);
 
   // point light
   point_light.type = POINT;
@@ -117,26 +173,6 @@ void game_init(GLFWwindow* w) {
   strcpy(mat_stone.specular_map_path, "assets/textures/Stone_Wall_013_Roughness.jpg");
   mat_stone.texture_subdivision = 1;
 
-  // sample cube to pre-allocate others
-  sample_cube.o = factory_create_box(1, 1, 1);
-  sample_cube.o->receive_shadows = 0;
-  sample_cube.o->meshes[0].mat = mat_stone;
-  object_set_center(sample_cube.o);
-  mesh_compute_tangent(&sample_cube.o->meshes[0]);
-  renderer_init_object(sample_cube.o);
-
-  // pre-allocate cubes
-  for (int i = 0; i < MAX_CUBES; i++) {
-    object* o = malloc(sizeof(*sample_cube.o));
-    memcpy(o, sample_cube.o, sizeof(*sample_cube.o));
-    cubes[i].o = o;
-    cubes[i].alive = 0;
-  }
-
-  // selection cube
-  select_cube = malloc(sizeof(*sample_cube.o));
-  memcpy(select_cube, sample_cube.o, sizeof(*sample_cube.o));
-
   // load character
   character.state = IDLE;
   character.o = importer_load("character");
@@ -173,6 +209,11 @@ void game_init(GLFWwindow* w) {
   garand->parent = character.o;
   garand->parent_joint = 18;
 
+  // load player weapon
+  memcpy(&player_weapon, garand, sizeof(object));
+  player_weapon.scale = 1;
+  player_weapon.parent = NULL;
+  
   // load enemy
   enemy.state = IDLE;
   enemy.o = importer_load("character");
@@ -311,6 +352,15 @@ void update_enemy() {
   }
 }
 
+void update_player() {
+  player_weapon.position[0] = 1;
+  player_weapon.position[1] = -1;
+  player_weapon.position[2] = -2;
+
+  vec3 y_axis = { 0, 1, 0 };
+  quat_rotate(player_weapon.rotation, to_radians(90), y_axis);
+}
+
 void game_update() {
   float current_frame = glfwGetTime();
   delta_time = current_frame - last_frame;
@@ -330,6 +380,9 @@ void game_update() {
 
   // enemy
   update_enemy();
+  
+  // player
+  update_player();
 
   // audio
   audio_move_listener(game_camera.pos);
@@ -341,11 +394,13 @@ void game_render() {
 
   // render entities
   render_list_clear(game_render_list);
+  render_list_clear(screen_render_list);
 
   // render sun sphere
-  // render_list_add(game_render_list, sun_sphere);
+  render_list_add(game_render_list, sun_sphere);
 
   // render_list_add(microdrag.game_render_list, sphere);
+
   render_list_add(game_render_list, ground);
 
   // render character
@@ -353,6 +408,9 @@ void game_render() {
 
   // render enemy
   render_list_add(game_render_list, enemy.o);
+
+  // render player weapon
+  //render_list_add(game_render_list, &player_weapon);
 
   // render nature
   for (int i = 0; i < MAX_TREES; i++) {
@@ -369,23 +427,28 @@ void game_render() {
   // render wall
   render_list_add(game_render_list, wall);
 
+  // screen objects
+  render_list_add(screen_render_list, &player_weapon);
+
   // render
-  renderer_render_objects(game_render_list->objects, game_render_list->size, &sun, &lights, 1, &game_camera, ui_render, &sky);
+  renderer_render_objects(game_render_list->objects, game_render_list->size, screen_render_list->objects, screen_render_list->size, &sun, &lights, 1, &game_camera, ui_render, &sky);
 }
 
 void game_free() {
   render_list_free(game_render_list);
+  render_list_free(screen_render_list);
   /* renderer_free_object(microdrag.cars[0].obj);
   audio_free_object(microdrag.cars[0].obj); */
-  object_free(sample_cube.o);
   object_free(ground);
 
-  object_free(garand);
+  object_free(sun_sphere);
 
   free(lights);
 
   ui_free();
   skybox_free(&sky);
+
+  object_free(garand);
 
   // cleanup engine modules
   audio_free();

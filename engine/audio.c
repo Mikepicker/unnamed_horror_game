@@ -1,5 +1,11 @@
 #include "audio.h"
 
+ALCenum error;
+ALCdevice* audio_device;
+ALCcontext* audio_context;
+ALuint audio_buffers[AUDIO_MAX_BUFFERS];
+int audio_buffers_count;
+
 static void list_audio_devices(const ALCchar *devices) {
   const ALCchar *device = devices, *next = devices + 1;
   size_t len = 0;

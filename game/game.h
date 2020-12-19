@@ -31,63 +31,15 @@ typedef struct {
   float run_speed;
 } entity;
 
-GLFWwindow* window;
-camera game_camera;
+extern float delta_time;
+extern float fps;
+extern camera game_camera;
+extern vec3 target_pos;
+extern light* lights;
+extern entity character;
+extern object* garand;
 
-render_list* game_render_list;
-float delta_time;
-float last_frame;
-float fps;
-
-// sun
-//object* sun_sphere;
-light sun;
-
-light* lights;
-int num_lights;
-// ALuint sound_car;
-enum game_state state;
-
-// point light
-light point_light;
-
-// skybox
-skybox sky;
-
-// ground
-object* ground;
-
-// cubes
-cube sample_cube;
-cube cubes[MAX_CUBES];
-object* select_cube;
-
-// where to place next cube
-vec3 place_target;
-
-// character
-entity character;
-vec3 target_pos;
-
-// sample enemy
-entity enemy;
-
-// sample item
-object* garand;
-
-// wood wall
-object* wall;
-
-// materials
-static material mat_stone;
-
-// nature
-object trees[MAX_TREES];
-object* tree_1;
-object rocks[MAX_ROCKS];
-object* rock;
-
-void game_init(GLFWwindow* window);
+void game_init();
 void game_start();
 void game_update();
 void game_render();

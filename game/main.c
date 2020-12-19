@@ -23,7 +23,7 @@ int main()
   }
 
   // init game
-  game_init(window);
+  game_init();
 
   // render & update
   while (!renderer_should_close()) {

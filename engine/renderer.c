@@ -4,6 +4,57 @@
 #define SHADOW_WIDTH 1024 * 4
 #define SHADOW_HEIGHT 1024 * 4
 
+#define SSAO_MAX_KERNEL_SIZE 64
+#define SSAO_MAX_NOISE_SIZE 16
+
+GLFWwindow* window;
+
+GLuint renderer_geometry_shader;
+GLuint renderer_lighting_shader;
+GLuint renderer_main_shader;
+GLuint renderer_shadow_shader;
+GLuint renderer_debug_shader;
+GLuint renderer_skybox_shader;
+GLuint renderer_ssao_shader;
+GLuint renderer_ssao_blur_shader;
+GLuint renderer_post_shader;
+
+GLuint renderer_depth_fbo;
+GLuint renderer_depth_map;
+GLuint renderer_vao;
+GLuint renderer_vbo;
+
+// deferred rendering
+GLuint renderer_g_buffer;
+GLuint renderer_g_position;
+GLuint renderer_g_normal;
+GLuint renderer_g_albedo;
+GLuint renderer_g_spec;
+
+// ssao
+GLuint renderer_ssao_enabled;
+GLuint renderer_ssao_fbo;
+GLuint renderer_ssao_blur_fbo;
+GLuint renderer_ssao_color;
+GLuint renderer_ssao_blur;
+GLuint renderer_ssao_noise_texture;
+vec3 renderer_ssao_kernel[SSAO_MAX_KERNEL_SIZE];
+vec3 renderer_ssao_noise[SSAO_MAX_NOISE_SIZE];
+int renderer_ssao_debug_on;
+
+// fxaa
+int renderer_fxaa_enabled;
+GLuint renderer_post_fbo;
+GLuint renderer_post_texture;
+
+int renderer_shadows_debug_enabled;
+int renderer_render_aabb;
+float renderer_shadow_bias;
+int renderer_shadow_pcf_enabled;
+float renderer_shadow_near;
+float renderer_shadow_far;
+float renderer_shadow_size;
+
 void set_opengl_state() {
   glEnable(GL_DEPTH_TEST);
   // glEnable(GL_MULTISAMPLE);
@@ -614,7 +665,7 @@ void pass_light_uniform(int light_index, light* l, mat4 view, GLuint shader_id) 
   glUniform1f(glGetUniformLocation(shader_id, uniform_light_quadratic), l->quadratic);
 }
 
-void renderer_render_objects(object* objects[], int objects_length, light* sun, light* lights[], int lights_length, camera* camera, void (*ui_render_callback)(void), skybox* sky)
+void renderer_render_objects(object* objects[], int objects_length, object* screen_objects[], int screen_objects_length, light* sun, light* lights[], int lights_length, camera* camera, void (*ui_render_callback)(void), skybox* sky)
 {
   GLint time;
   float ratio;
@@ -627,9 +678,17 @@ void renderer_render_objects(object* objects[], int objects_length, light* sun, 
     objects[i]->calculate_transform = 1;
   }
 
+  for (int i = 0; i < screen_objects_length; i++) {
+    screen_objects[i]->calculate_transform = 1;
+  }
+
   // calculate transforms
   for (int i = 0; i < objects_length; i++) {
     calculate_world_transform(objects[i]);
+  }
+
+  for (int i = 0; i < screen_objects_length; i++) {
+    calculate_world_transform(screen_objects[i]);
   }
 
   /*-------------------------------------------------------------------*/
@@ -690,6 +749,12 @@ void renderer_render_objects(object* objects[], int objects_length, light* sun, 
   glUniform1f(glGetUniformLocation(renderer_geometry_shader, "time"), (float)glfwGetTime());
 
   render_objects(objects, objects_length, renderer_geometry_shader);
+
+  // render screen objects
+  mat4 screen_v;
+  mat4_identity(screen_v);
+  glUniformMatrix4fv(glGetUniformLocation(renderer_geometry_shader, "V"), 1, GL_FALSE, (const GLfloat*) screen_v);
+  render_objects(screen_objects, screen_objects_length, renderer_geometry_shader);
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   /*---------------------------------------------------------------------*/
