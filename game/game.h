@@ -4,6 +4,7 @@
 #include "../engine/seaengine.h"
 #include "ui.h"
 #include "input.h"
+#include "dungeon.h"
 
 #define GAME_WIDTH 1080
 #define GAME_HEIGHT 720

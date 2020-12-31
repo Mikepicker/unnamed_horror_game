@@ -1,5 +1,7 @@
 #include "game.h"
 
+#define DUNGEON_BLOCK_SIZE 4
+
 camera game_camera;
 
 render_list* game_render_list;
@@ -32,8 +34,8 @@ object* ground;
 // where to place next cube
 vec3 place_target;
 
-// character
-entity character;
+// mutant
+entity mutant;
 vec3 target_pos;
 
 // sample enemy
@@ -43,10 +45,12 @@ entity enemy;
 object* garand;
 
 // player
+object* player;
 object player_weapon;
 
-// wood wall
-object* wall;
+// dungeon
+object* block;
+object blocks[DUNGEON_SIZE * DUNGEON_SIZE];
 
 // materials
 material mat_stone;
@@ -100,10 +104,11 @@ void game_init() {
   sun.color[0] = light_s * 1.0f;
   sun.color[1] = light_s * 0.86f;
   sun.color[2] = light_s * 0.53f;
-  /*sun.ambient = 0.0f;
+  sun.ambient = 1.0f;
+  sun.ambient = 0.0f;
   sun.color[0] = 0.0;
   sun.color[1] = 0.0;
-  sun.color[2] = 0.0;*/
+  sun.color[2] = 0.0;
 
   sun_sphere = factory_create_sphere(5, 10, 10);
   vec3_copy(sun_sphere->position, sun.position);
@@ -151,15 +156,26 @@ void game_init() {
   material_init(&mat_grass);
   strcpy(mat_grass.name, "grass_mat");
   strcpy(mat_grass.texture_path, "assets/textures/Grass_001_COLOR.jpg");
-  // strcpy(mat_grass.normal_map_path, "assets/textures/Grass_001_NORM.jpg");
+  strcpy(mat_grass.normal_map_path, "assets/textures/Grass_001_NORM.jpg");
   mat_grass.specular = 0.0f;
   mat_grass.reflectivity = 0;
   mat_grass.texture_subdivision = 300;
 
+  // floor material
+  material mat_floor;
+  material_init(&mat_floor);
+  strcpy(mat_floor.name, "floor_mat");
+  strcpy(mat_floor.texture_path, "assets/textures/floor/PavingStones037_1K_Color.png");
+  strcpy(mat_floor.normal_map_path, "assets/textures/floor/PavingStones037_1K_Normal.png");
+  strcpy(mat_floor.specular_map_path, "assets/textures/floor/PavingStones037_1K_Roughness.png");
+  mat_floor.specular = 0.0f;
+  mat_floor.reflectivity = 0;
+  mat_floor.texture_subdivision = 300;
+
   // ground
   ground = factory_create_plane(1000, 1000);
   ground->position[1] = -0.001;
-  ground->meshes[0].mat = mat_grass;
+  ground->meshes[0].mat = mat_floor;
   ground->receive_shadows = 1;
   object_set_center(ground);
   mesh_compute_tangent(&ground->meshes[0]);
@@ -174,23 +190,23 @@ void game_init() {
   mat_stone.texture_subdivision = 1;
 
   // load character
-  character.state = IDLE;
-  character.o = importer_load("character");
-  character.o->scale = 0.01f;
-  character.o->receive_shadows = 0;
-  physics_compute_aabb(character.o);
-  character.run_speed = 4;
-  character.dir[0] = 0;
-  character.dir[1] = 0;
-  character.dir[2] = 1;
-  vec3_zero(character.o->position);
+  mutant.state = IDLE;
+  mutant.o = importer_load("mutant");
+  mutant.o->scale = 0.01f;
+  mutant.o->receive_shadows = 0;
+  physics_compute_aabb(mutant.o);
+  mutant.run_speed = 4;
+  mutant.dir[0] = 0;
+  mutant.dir[1] = 0;
+  mutant.dir[2] = 1;
+  vec3_zero(mutant.o->position);
   vec3_zero(target_pos);
-  renderer_init_object(character.o);
-  animator_play(character.o, "idle", 1);
+  renderer_init_object(mutant.o);
+  animator_play(mutant.o, "idle", 1);
 
   // load example item
   garand = importer_load("garand");
-  garand->scale = 1 * 0.2 / character.o->scale;
+
   // garand->scale = 1;
   garand->position[0] = -5.4;
   garand->position[1] = 7.6;
@@ -206,8 +222,10 @@ void game_init() {
   quat_mul(garand->rotation, qz, qy);
 
   renderer_init_object(garand);
-  garand->parent = character.o;
-  garand->parent_joint = 18;
+
+  // player as cube (need it only for collisions)
+  player = factory_create_box(2, 2, 2);
+  physics_compute_aabb(player);
 
   // load player weapon
   memcpy(&player_weapon, garand, sizeof(object));
@@ -270,13 +288,32 @@ void game_init() {
     quat_rotate(rocks[i].rotation, to_radians(rot), z_axis);
   }
 
-  // load wood wall
-  wall = importer_load("wood_wall");
-  wall->receive_shadows = 0;
-  renderer_init_object(wall);
-
   // game state
   state = MENU;
+
+  // dungeon
+  dungeon_generate();
+
+  // doungeon block
+  block = factory_create_box(DUNGEON_BLOCK_SIZE, DUNGEON_BLOCK_SIZE, DUNGEON_BLOCK_SIZE);
+  block->receive_shadows = 0;
+  block->meshes[0].mat = mat_stone;
+  block->position[1] = (int)(DUNGEON_BLOCK_SIZE / 2);
+  renderer_init_object(block);
+
+  // popolate dungeon
+  int i = 0;
+  for (int y = 0; y < DUNGEON_SIZE; y++) {
+    for (int x = 0; x < DUNGEON_SIZE; x++) {
+      if (dungeon[y][x] == NEXT_TO_ROOM) {
+        memcpy(&blocks[i], block, sizeof(object));
+        blocks[i].position[0] = DUNGEON_BLOCK_SIZE * x;
+        blocks[i].position[2] = DUNGEON_BLOCK_SIZE * y;
+        i++;
+      }
+    }
+  }
+
 }
 
 void game_start() {
@@ -285,28 +322,28 @@ void game_start() {
 
 void update_character() {
   // update animation
-  animator_update(character.o, delta_time);
+  animator_update(mutant.o, delta_time);
 
-  enum entity_state state = character.state;
+  enum entity_state state = mutant.state;
 
   // attacking
   if (state == ATTACK) {
-    int key = animator_current_keyframe(character.o);
+    int key = animator_current_keyframe(mutant.o);
     if (enemy.state != DIE && key > 18 && key < 22) {
       animator_play(enemy.o, "die", 0);
       enemy.state = DIE;
-    } else if (animator_finished(character.o)) {
-      animator_play(character.o, "idle", 1);
-      character.state = IDLE;
+    } else if (animator_finished(mutant.o)) {
+      animator_play(mutant.o, "idle", 1);
+      mutant.state = IDLE;
     }
   }
 
   if (state == IDLE) {
     vec3 dist_to_enemy;
-    vec3_sub(dist_to_enemy, character.o->position, enemy.o->position);
+    vec3_sub(dist_to_enemy, mutant.o->position, enemy.o->position);
     if (enemy.state != DIE && vec3_len(dist_to_enemy) < 2 * 1/enemy.o->scale) {
-      animator_play(character.o, "attack", 0);
-      character.state = ATTACK;
+      animator_play(mutant.o, "attack", 0);
+      mutant.state = ATTACK;
       return;
     }
   }
@@ -314,24 +351,24 @@ void update_character() {
   // move character to target
   if (state == MOVE) {
     vec3 dir, dist;
-    vec3_sub(dist, target_pos, character.o->position);
+    vec3_sub(dist, target_pos, mutant.o->position);
     if (vec3_len(dist) > 2) {
-      if (strcmp(character.o->current_anim->name, "run") != 0)
-        animator_play(character.o, "run", 1);
+      if (strcmp(mutant.o->current_anim->name, "run") != 0)
+        animator_play(mutant.o, "run", 1);
 
       // position
       vec3_norm(dir, dist);
-      vec3_scale(dir, dir, character.run_speed);
-      vec3_add(character.o->position, character.o->position, dir);
+      vec3_scale(dir, dir, mutant.run_speed);
+      vec3_add(mutant.o->position, mutant.o->position, dir);
 
       // rotation
       vec3 front = { 0.0f, 0.0f, 1.0f };
       vec3 y_axis = { 0, 1, 0 };
       float angle = vec3_angle_between(front, dir, y_axis);
-      quat_rotate(character.o->rotation, angle, y_axis);
+      quat_rotate(mutant.o->rotation, angle, y_axis);
     } else {
-      animator_play(character.o, "idle", 1);
-      character.state = IDLE;
+      animator_play(mutant.o, "idle", 1);
+      mutant.state = IDLE;
     }
   }
 
@@ -342,7 +379,7 @@ void update_enemy() {
   
   if (enemy.state != DIE) {
     vec3 dir;
-    vec3_sub(dir, character.o->position, enemy.o->position);
+    vec3_sub(dir, mutant.o->position, enemy.o->position);
     vec3_norm(dir, dir);
 
     vec3 front = { 0.0f, 0.0f, 1.0f };
@@ -359,6 +396,11 @@ void update_player() {
 
   vec3 y_axis = { 0, 1, 0 };
   quat_rotate(player_weapon.rotation, to_radians(90), y_axis);
+
+  // collide with walls
+  if (game_camera.pos[0] <= -10) {
+    game_camera.pos[0] = -10;
+  }
 }
 
 void game_update() {
@@ -390,7 +432,7 @@ void game_update() {
 
 void game_render() {
   // point light
-  vec3_copy(point_light.position, character.o->position);
+  vec3_copy(lights[0].position, game_camera.pos);
 
   // render entities
   render_list_clear(game_render_list);
@@ -404,7 +446,7 @@ void game_render() {
   render_list_add(game_render_list, ground);
 
   // render character
-  render_list_add(game_render_list, character.o);
+  render_list_add(game_render_list, mutant.o);
 
   // render enemy
   render_list_add(game_render_list, enemy.o);
@@ -421,11 +463,10 @@ void game_render() {
     render_list_add(game_render_list, &rocks[i]);
   }
   
-  // render sample item
-  render_list_add(game_render_list, garand);
-
-  // render wall
-  render_list_add(game_render_list, wall);
+  // render room
+  for (int i = 0; i < DUNGEON_SIZE * DUNGEON_SIZE; i++) {
+    render_list_add(game_render_list, &blocks[i]);
+  }
 
   // screen objects
   render_list_add(screen_render_list, &player_weapon);
@@ -440,6 +481,9 @@ void game_free() {
   /* renderer_free_object(microdrag.cars[0].obj);
   audio_free_object(microdrag.cars[0].obj); */
   object_free(ground);
+
+  // free dungeon
+  object_free(block);
 
   object_free(sun_sphere);
 

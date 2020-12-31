@@ -48,7 +48,7 @@ void mesh_compute_tangent(mesh* m) {
     m->vertices[m->indices[i + 2]] = v3;
   }
 
-  // Normalize
+  // normalize
   for (unsigned int i = 0; i < m->num_indices; i++) {
     vertex v = m->vertices[m->indices[i]];
     vec3 tnorm = { v.tx, v.ty, v.tz };

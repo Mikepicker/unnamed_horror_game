@@ -1,0 +1,8 @@
+newmtl parasitezombie_Material
+Ke 0.000000 0.000000 0.000000
+Ka 0.000000 0.000000 0.000000
+map_Kd parasiteZombie_diffuse.png
+map_Ks parasiteZombie_specular.png
+Ns 20.000000
+d 1.000000
+map_Kn parasiteZombie_normal.png

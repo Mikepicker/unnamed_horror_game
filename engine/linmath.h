@@ -25,6 +25,10 @@ static inline float lerp(float p1, float p2, float amount) {
   return (p2 * amount) + (p1 * (1 - amount));
 }
 
+static inline float clamp(float x, float lower, float upper) {
+  return fmin(upper, fmax(x, lower));
+}
+
 #define LINMATH_H_DEFINE_VEC(n) \
 typedef float vec##n[n]; \
 static inline void vec##n##_add(vec##n r, vec##n const a, vec##n const b) \
