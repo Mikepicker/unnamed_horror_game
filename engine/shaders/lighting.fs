@@ -37,6 +37,10 @@ uniform float shadowBias;
 uniform int shadowPCFEnabled;
 uniform mat4 lightSpaceMatrix;
 
+// omni shadow map
+uniform samplerCube omniShadowMap;
+uniform float omniShadowFarPlane;
+
 // render params
 uniform vec3 color_mask;
 uniform int glowing;
@@ -82,6 +86,20 @@ float shadowCalculation(vec4 fragPosLightSpace, vec3 lightDir, vec3 normal) {
   return shadow;
 }
 
+float omniShadowCalculation(vec3 fragPosWorldSpace, vec3 lightPosWorldSpace) {
+  vec3 fragToLight = fragPosWorldSpace - lightPosWorldSpace;
+
+  float closestDepth = texture(omniShadowMap, fragToLight).r;
+  closestDepth *= omniShadowFarPlane;  
+
+  float currentDepth = length(fragToLight);  
+
+  float bias = 0.05; 
+  float shadow = currentDepth -  bias > closestDepth ? 1.0 : 0.0; 
+
+  return shadow;
+}
+
 vec3 calcDirLight(Light l, vec3 diffuse, float specular, vec3 normal, float ao, vec3 viewDir, vec4 fragPosLightSpace, float receive_shadows) {
   vec3 lightDir = normalize(-l.dir);
   
@@ -104,7 +122,7 @@ vec3 calcDirLight(Light l, vec3 diffuse, float specular, vec3 normal, float ao, 
   return lAmbient + (1.0 - shadow) * (lDiffuse + lSpecular);
 }
 
-vec3 calcPointLight(Light l, vec3 diffuse, float specular, vec3 normal, float ao, vec3 viewDir, vec3 fragPos) {
+vec3 calcPointLight(Light l, vec3 diffuse, float specular, vec3 normal, float ao, vec3 viewDir, vec3 fragPos, vec3 fragPosWorldSpace, float receive_shadows) {
   vec3 lightDir = normalize(l.position - fragPos);
   
   // ambient
@@ -124,7 +142,13 @@ vec3 calcPointLight(Light l, vec3 diffuse, float specular, vec3 normal, float ao
   lDiffuse *= attenuation;
   lSpecular *= attenuation;
 
-  return lAmbient + lDiffuse + lSpecular;
+  float shadow = 0.0;
+  if (receive_shadows > 0) {
+    vec3 lightPosWorldSpace = (viewInv * vec4(l.position, 1.0)).xyz;
+    shadow = omniShadowCalculation(fragPosWorldSpace, lightPosWorldSpace);
+  }
+
+  return lAmbient + (1.0 - shadow) * (lDiffuse + lSpecular);
 }
 
 void main()
@@ -162,9 +186,9 @@ void main()
   for (int i = 0; i < min(lightsNr, MAX_LIGHTS); i++) {
 
     if (lights[i].type == 0) { // directional light
-      lighting += calcDirLight(lights[i], Diffuse, Specular, Normal, ao, viewDir, fragPosLightSpace, receive_shadows);
+      // lighting += calcDirLight(lights[i], Diffuse, Specular, Normal, ao, viewDir, fragPosLightSpace, receive_shadows);
     } else if (lights[i].type == 1) { // point light
-      lighting += calcPointLight(lights[i], Diffuse, Specular, Normal, ao, viewDir, FragPos);
+      lighting += calcPointLight(lights[i], Diffuse, Specular, Normal, ao, viewDir, FragPos, fragPosWorldSpace.xyz, receive_shadows);
     }
 
   }

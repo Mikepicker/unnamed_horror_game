@@ -117,8 +117,8 @@ void game_init() {
   // point light
   point_light.type = POINT;
   point_light.position[0] = 0;
-  point_light.position[1] = 0;
-  point_light.position[2] = 0;
+  point_light.position[1] = 1;
+  point_light.position[2] = -2;
   point_light.ambient = 0.5;
   point_light.constant = 1.0;
   point_light.linear = 0.09;
@@ -269,7 +269,8 @@ void game_init() {
 
   // load rock
   rock = importer_load("rock");
-  rock->receive_shadows = 0;
+  vec3_zero(rock->position);
+  rock->receive_shadows = 1;
   renderer_init_object(rock);
 
   max = 30;
@@ -296,7 +297,7 @@ void game_init() {
 
   // doungeon block
   block = factory_create_box(DUNGEON_BLOCK_SIZE, DUNGEON_BLOCK_SIZE, DUNGEON_BLOCK_SIZE);
-  block->receive_shadows = 0;
+  block->receive_shadows = 1;
   block->meshes[0].mat = mat_stone;
   block->position[1] = (int)(DUNGEON_BLOCK_SIZE / 2);
   renderer_init_object(block);
@@ -307,8 +308,8 @@ void game_init() {
     for (int x = 0; x < DUNGEON_SIZE; x++) {
       if (dungeon[y][x] == NEXT_TO_ROOM) {
         memcpy(&blocks[i], block, sizeof(object));
-        blocks[i].position[0] = DUNGEON_BLOCK_SIZE * x;
-        blocks[i].position[2] = DUNGEON_BLOCK_SIZE * y;
+        blocks[i].position[0] = (DUNGEON_BLOCK_SIZE * x) - ((float)DUNGEON_SIZE);
+        blocks[i].position[2] = (DUNGEON_BLOCK_SIZE * y) - ((float)DUNGEON_SIZE);
         i++;
       }
     }
@@ -412,6 +413,7 @@ void game_update() {
   input_update();
 
   // lights
+  lights[0].position[2] = 8 * sinf(current_frame);
   // sun.position[0] = 10 + sinf(current_frame) * 5;
   /* sun.position[0] = game_camera.pos[0];
   sun.position[1] = game_camera.pos[1] + 15;
@@ -431,9 +433,6 @@ void game_update() {
 }
 
 void game_render() {
-  // point light
-  vec3_copy(lights[0].position, game_camera.pos);
-
   // render entities
   render_list_clear(game_render_list);
   render_list_clear(screen_render_list);
@@ -444,6 +443,9 @@ void game_render() {
   // render_list_add(microdrag.game_render_list, sphere);
 
   render_list_add(game_render_list, ground);
+
+  // sample rock
+  // render_list_add(game_render_list, rock);
 
   // render character
   render_list_add(game_render_list, mutant.o);
@@ -465,7 +467,7 @@ void game_render() {
   
   // render room
   for (int i = 0; i < DUNGEON_SIZE * DUNGEON_SIZE; i++) {
-    render_list_add(game_render_list, &blocks[i]);
+    // render_list_add(game_render_list, &blocks[i]);
   }
 
   // screen objects
@@ -478,8 +480,7 @@ void game_render() {
 void game_free() {
   render_list_free(game_render_list);
   render_list_free(screen_render_list);
-  /* renderer_free_object(microdrag.cars[0].obj);
-  audio_free_object(microdrag.cars[0].obj); */
+
   object_free(ground);
 
   // free dungeon

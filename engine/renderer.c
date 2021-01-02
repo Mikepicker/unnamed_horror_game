@@ -1,8 +1,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "renderer.h"
 
-#define SHADOW_WIDTH 1024 * 4
-#define SHADOW_HEIGHT 1024 * 4
+#define SHADOW_WIDTH 1024
+#define SHADOW_HEIGHT 1024
 
 #define SSAO_MAX_KERNEL_SIZE 64
 #define SSAO_MAX_NOISE_SIZE 16
@@ -13,6 +13,7 @@ GLuint renderer_geometry_shader;
 GLuint renderer_lighting_shader;
 GLuint renderer_main_shader;
 GLuint renderer_shadow_shader;
+GLuint renderer_omni_shadow_shader;
 GLuint renderer_debug_shader;
 GLuint renderer_skybox_shader;
 GLuint renderer_ssao_shader;
@@ -47,6 +48,7 @@ int renderer_fxaa_enabled;
 GLuint renderer_post_fbo;
 GLuint renderer_post_texture;
 
+// shadows
 int renderer_shadows_debug_enabled;
 int renderer_render_aabb;
 float renderer_shadow_bias;
@@ -54,6 +56,10 @@ int renderer_shadow_pcf_enabled;
 float renderer_shadow_near;
 float renderer_shadow_far;
 float renderer_shadow_size;
+
+// omni-directional shadows
+GLuint renderer_depth_cubemap;
+GLuint renderer_depth_cubemap_fbo;
 
 void set_opengl_state() {
   glEnable(GL_DEPTH_TEST);
@@ -248,6 +254,30 @@ void init_post(int width, int height) {
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+void init_omni_shadows() {
+  glGenFramebuffers(1, &renderer_depth_cubemap_fbo);
+  glGenTextures(1, &renderer_depth_cubemap);
+
+  glBindTexture(GL_TEXTURE_CUBE_MAP, renderer_depth_cubemap);
+  for (unsigned int i = 0; i < 6; ++i) {
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, 
+        SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL); 
+  }
+
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);  
+
+  // attach depth texture as FBO's depth buffer
+  glBindFramebuffer(GL_FRAMEBUFFER, renderer_depth_cubemap_fbo);
+  glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, renderer_depth_cubemap, 0);
+  glDrawBuffer(GL_NONE);
+  glReadBuffer(GL_NONE);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow** out_window) {
   glfwInit();
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -289,6 +319,11 @@ int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow
   renderer_shadow_bias = 0.22f;
   renderer_shadow_pcf_enabled = 1;
 
+  // omni-directional shadow mapping
+  renderer_depth_cubemap = 0;
+  renderer_depth_cubemap_fbo = 0;
+  init_omni_shadows();
+
   // fxaa
   renderer_fxaa_enabled = 1;
 
@@ -314,15 +349,16 @@ void renderer_cleanup() {
 }
 
 void renderer_recompile_shader() {
-  shader_compile("../engine/shaders/geometry.vs", "../engine/shaders/geometry.fs", &renderer_geometry_shader);
-  shader_compile("../engine/shaders/lighting.vs", "../engine/shaders/lighting.fs", &renderer_lighting_shader);
-  shader_compile("../engine/shaders/toon.vs", "../engine/shaders/toon.fs", &renderer_main_shader);
-  shader_compile("../engine/shaders/shadow.vs", "../engine/shaders/shadow.fs", &renderer_shadow_shader);
-  shader_compile("../engine/shaders/debug.vs", "../engine/shaders/debug.fs", &renderer_debug_shader);
-  shader_compile("../engine/shaders/skybox.vs", "../engine/shaders/skybox.fs", &renderer_skybox_shader);
-  shader_compile("../engine/shaders/ssao.vs", "../engine/shaders/ssao.fs", &renderer_ssao_shader);
-  shader_compile("../engine/shaders/ssao.vs", "../engine/shaders/blur.fs", &renderer_ssao_blur_shader);
-  shader_compile("../engine/shaders/post.vs", "../engine/shaders/post.fs", &renderer_post_shader);
+  shader_compile("../engine/shaders/geometry.vs", "../engine/shaders/geometry.fs", NULL, &renderer_geometry_shader);
+  shader_compile("../engine/shaders/lighting.vs", "../engine/shaders/lighting.fs", NULL, &renderer_lighting_shader);
+  shader_compile("../engine/shaders/toon.vs", "../engine/shaders/toon.fs", NULL, &renderer_main_shader);
+  shader_compile("../engine/shaders/shadow.vs", "../engine/shaders/shadow.fs", NULL, &renderer_shadow_shader);
+  shader_compile("../engine/shaders/omni_shadow.vs", "../engine/shaders/omni_shadow.fs", "../engine/shaders/omni_shadow.gs", &renderer_omni_shadow_shader);
+  shader_compile("../engine/shaders/debug.vs", "../engine/shaders/debug.fs", NULL, &renderer_debug_shader);
+  shader_compile("../engine/shaders/skybox.vs", "../engine/shaders/skybox.fs", NULL, &renderer_skybox_shader);
+  shader_compile("../engine/shaders/ssao.vs", "../engine/shaders/ssao.fs", NULL, &renderer_ssao_shader);
+  shader_compile("../engine/shaders/ssao.vs", "../engine/shaders/blur.fs", NULL, &renderer_ssao_blur_shader);
+  shader_compile("../engine/shaders/post.vs", "../engine/shaders/post.fs", NULL, &renderer_post_shader);
 }
 
 int renderer_should_close() {
@@ -628,7 +664,7 @@ static void calculate_world_transform(object* o) {
   o->calculate_transform = 0;
 }
 
-void pass_light_uniform(int light_index, light* l, mat4 view, GLuint shader_id) {
+static void pass_light_uniform(int light_index, light* l, mat4 view, GLuint shader_id) {
   char uniform_light_type[256];
   sprintf(uniform_light_type, "lights[%d].type", light_index);
   char uniform_light_pos[256];
@@ -665,13 +701,60 @@ void pass_light_uniform(int light_index, light* l, mat4 view, GLuint shader_id) 
   glUniform1f(glGetUniformLocation(shader_id, uniform_light_quadratic), l->quadratic);
 }
 
+static void fill_omnishadows_transforms(mat4 transforms[6], mat4* proj, vec3 light_pos) {
+  vec3 center;
+
+  // face 1
+  vec3 dir_1 = { 1, 0, 0 };
+  vec3 up_1 = { 0, -1, 0 };
+  vec3_add(center, light_pos, dir_1);
+  mat4_look_at(transforms[0], light_pos, center, up_1);
+  mat4_mul(transforms[0], *proj, transforms[0]);
+
+  // face 2
+  vec3 dir_2 = { -1, 0, 0 };
+  vec3 up_2 = { 0, -1, 0 };
+  vec3_add(center, light_pos, dir_2);
+  mat4_look_at(transforms[1], light_pos, center, up_2);
+  mat4_mul(transforms[1], *proj, transforms[1]);
+
+  // face 3
+  vec3 dir_3 = { 0, 1, 0 };
+  vec3 up_3 = { 0, 0, 1 };
+  vec3_add(center, light_pos, dir_3);
+  mat4_look_at(transforms[2], light_pos, center, up_3);
+  mat4_mul(transforms[2], *proj, transforms[2]);
+
+  // face 4
+  vec3 dir_4 = { 0, -1, 0 };
+  vec3 up_4 = { 0, 0, -1 };
+  vec3_add(center, light_pos, dir_4);
+  mat4_look_at(transforms[3], light_pos, center, up_4);
+  mat4_mul(transforms[3], *proj, transforms[3]);
+
+  // face 5
+  vec3 dir_5 = { 0, 0, 1 };
+  vec3 up_5 = { 0, -1, 0 };
+  vec3_add(center, light_pos, dir_5);
+  mat4_look_at(transforms[4], light_pos, center, up_5);
+  mat4_mul(transforms[4], *proj, transforms[4]);
+
+  // face 6
+  vec3 dir_6 = { 0, 0, -1 };
+  vec3 up_6 = { 0, -1, 0 };
+  vec3_add(center, light_pos, dir_6);
+  mat4_look_at(transforms[5], light_pos, center, up_6);
+  mat4_mul(transforms[5], *proj, transforms[5]);
+}
+
 void renderer_render_objects(object* objects[], int objects_length, object* screen_objects[], int screen_objects_length, light* sun, light* lights[], int lights_length, camera* camera, void (*ui_render_callback)(void), skybox* sky)
 {
   GLint time;
-  float ratio;
   int width, height;
 
   glfwGetFramebufferSize(window, &width, &height);
+
+  float ratio = width / (float)height;
 
   // reset world transform calculations
   for (int i = 0; i < objects_length; i++) {
@@ -691,9 +774,9 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
     calculate_world_transform(screen_objects[i]);
   }
 
-  /*-------------------------------------------------------------------*/
-  /*------------------------------shadows------------------------------*/
-  /*-------------------------------------------------------------------*/
+  /*-------------------------------------------------------------------------------*/
+  /*------------------------------directional shadows------------------------------*/
+  /*-------------------------------------------------------------------------------*/
   glClearColor(183.0f / 255.0f, 220.0f / 255.0f, 244.0f / 255.0f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -722,6 +805,40 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
   render_objects(objects, objects_length, renderer_shadow_shader);
   // glCullFace(GL_BACK);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  /*-----------------------------------------------------------------------------------*/
+  /*------------------------------omnidirectional shadows------------------------------*/
+  /*-----------------------------------------------------------------------------------*/
+  glClearColor(183.0f / 255.0f, 220.0f / 255.0f, 244.0f / 255.0f, 1.0f);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  float omni_shadows_near_plane = 1.0f;
+  float omni_shadows_far_plane = 25.0f;
+  mat4 omni_shadows_p;
+  mat4_perspective(omni_shadows_p, to_radians(90.0f), (float)SHADOW_WIDTH / SHADOW_HEIGHT, omni_shadows_near_plane, omni_shadows_far_plane);
+
+  // cubemap transforms TODO: do this for all lights
+  mat4 omni_shadows_transforms[6];
+  fill_omnishadows_transforms(omni_shadows_transforms, &omni_shadows_p, lights[0]->position);
+
+  // render scene to cubemap
+  glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+  glBindFramebuffer(GL_FRAMEBUFFER, renderer_depth_cubemap_fbo);
+  glClear(GL_DEPTH_BUFFER_BIT);
+  
+  glUseProgram(renderer_omni_shadow_shader);
+  for (int i = 0; i < 6; i++) {
+    char uniform[256];
+    sprintf(uniform, "shadowMatrices[%d]", i);
+    glUniformMatrix4fv(glGetUniformLocation(renderer_omni_shadow_shader, uniform), 1, GL_FALSE, (const GLfloat*) omni_shadows_transforms[i]);
+  }
+  glUniform1f(glGetUniformLocation(renderer_omni_shadow_shader, "far_plane"), omni_shadows_far_plane);
+  glUniform3fv(glGetUniformLocation(renderer_omni_shadow_shader, "lightPos"), 1, lights[0]->position);
+
+  render_objects(objects, objects_length, renderer_omni_shadow_shader);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
   /*-------------------------------------------------------------------------*/
   /*------------------------------geometry pass------------------------------*/
   /*-------------------------------------------------------------------------*/
@@ -729,7 +846,6 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
   glBindFramebuffer(GL_FRAMEBUFFER, renderer_g_buffer);
   glUseProgram(renderer_geometry_shader);
 
-  ratio = width / (float)height;
   glViewport(0, 0, width, height);
   glClearColor(183.0f / 255.0f, 220.0f / 255.0f, 244.0f / 255.0f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -843,15 +959,23 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
   mat4_invert(view_inv, v);
   glUniformMatrix4fv(glGetUniformLocation(renderer_lighting_shader, "viewInv"), 1, GL_FALSE, (const GLfloat*) view_inv);
 
-  // pass depth map
+  // pass shadow depth map
   glUniform1i(glGetUniformLocation(renderer_lighting_shader, "shadowMap"), 4);
   glActiveTexture(GL_TEXTURE4);
   glBindTexture(GL_TEXTURE_2D, renderer_depth_map);
 
+  // pass omni-shadow depth map
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "omniShadowMap"), 5);
+  glActiveTexture(GL_TEXTURE5);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, renderer_depth_cubemap);
+
+  // pass omni-shadow far plane
+  glUniform1f(glGetUniformLocation(renderer_lighting_shader, "omniShadowFarPlane"), omni_shadows_far_plane);
+
   // skybox to shader
   if (sky) {
-    glUniform1i(glGetUniformLocation(renderer_lighting_shader, "skybox"), 5);
-    glActiveTexture(GL_TEXTURE5);
+    glUniform1i(glGetUniformLocation(renderer_lighting_shader, "skybox"), 6);
+    glActiveTexture(GL_TEXTURE6);
     glBindTexture(GL_TEXTURE_CUBE_MAP, sky->texture_id);
   }
 
@@ -862,8 +986,8 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
   glUniform1f(glGetUniformLocation(renderer_lighting_shader, "time"), (float)glfwGetTime());
 
   // pass ssao texture to shader
-  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "ssao"), 6);
-  glActiveTexture(GL_TEXTURE6);
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "ssao"), 7);
+  glActiveTexture(GL_TEXTURE7);
   glBindTexture(GL_TEXTURE_2D, renderer_ssao_blur);
 
   // ssao uniforms

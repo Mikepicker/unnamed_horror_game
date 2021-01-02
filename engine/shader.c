@@ -38,34 +38,47 @@ void shader_load(const GLchar* file_path, GLchar** shader)
   (*shader)[fsize] = 0;
 }
 
-void shader_compile(const GLchar* vertex_path, const GLchar* fragment_path, GLuint* shader_id)
+void shader_compile(const GLchar* vertex_path, const GLchar* fragment_path, const GLchar* geometry_path, GLuint* shader_id)
 {
-  GLuint s_vertex, s_fragment;
+  GLuint s_vertex, s_fragment, s_geometry;
   GLchar* vertex_source;
   GLchar* fragment_source;
+  GLchar* geometry_source;
   shader_load(vertex_path, &vertex_source);
   shader_load(fragment_path, &fragment_source);
 
-  // Vertex Shader
+  if (geometry_path != NULL) shader_load(geometry_path, &geometry_source);
+
+  // vertex shader
   s_vertex = glCreateShader(GL_VERTEX_SHADER);
   glShaderSource(s_vertex, 1, (const GLchar **)&vertex_source, NULL);
   glCompileShader(s_vertex);
   shader_check_compile_errors(s_vertex, "VERTEX");
 
-  // Fragment Shader
+  // fragment shader
   s_fragment = glCreateShader(GL_FRAGMENT_SHADER);
   glShaderSource(s_fragment, 1, (const GLchar **)&fragment_source, NULL);
   glCompileShader(s_fragment);
   shader_check_compile_errors(s_fragment, "FRAGMENT");
 
-  // Shader Program
+  // geometry shader
+  if (geometry_path != NULL) {
+    s_geometry = glCreateShader(GL_GEOMETRY_SHADER);
+    glShaderSource(s_geometry, 1, (const GLchar **)&geometry_source, NULL);
+    glCompileShader(s_geometry);
+    shader_check_compile_errors(s_geometry, "GEOMETRY");
+  }
+
+  // shader program
   *shader_id = glCreateProgram();
   glAttachShader(*shader_id, s_vertex);
   glAttachShader(*shader_id, s_fragment);
+  if (geometry_path != NULL) glAttachShader(*shader_id, s_geometry);
   glLinkProgram(*shader_id);
   shader_check_compile_errors(*shader_id, "PROGRAM");
 
-  // Delete the shaders as they're linked into our program now and no longer necessery
+  // delete the shaders as they're linked into our program now and no longer necessery
   glDeleteShader(s_vertex);
   glDeleteShader(s_fragment);
+  if (geometry_path != NULL) glDeleteShader(s_geometry);
 }
