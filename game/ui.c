@@ -86,7 +86,7 @@ void ui_render() {
 
     nk_layout_row_static(ctx, 30, 120, 1);
     if (nk_button_label(ctx, "Set light here")) {
-      vec3_copy(lights[0].position, cam->pos);
+      vec3_copy(lights[0]->position, cam->pos);
     }
 
     nk_layout_row_static(ctx, 30, 120, 1);

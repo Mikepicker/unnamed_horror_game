@@ -664,7 +664,7 @@ static void calculate_world_transform(object* o) {
   o->calculate_transform = 0;
 }
 
-static void pass_light_uniform(int light_index, light* l, mat4 view, GLuint shader_id) {
+static void pass_light_uniform(int light_index, light* l, mat4 view, mat4 light_space_matrix, GLuint shader_id) {
   char uniform_light_type[256];
   sprintf(uniform_light_type, "lights[%d].type", light_index);
   char uniform_light_pos[256];
@@ -681,6 +681,8 @@ static void pass_light_uniform(int light_index, light* l, mat4 view, GLuint shad
   sprintf(uniform_light_linear, "lights[%d].linear", light_index);
   char uniform_light_quadratic[256];
   sprintf(uniform_light_quadratic, "lights[%d].quadratic", light_index);
+  char uniform_light_space_matrix[256];
+  sprintf(uniform_light_space_matrix, "lights[%d].light_space_matrix", light_index);
 
   // light pos in view space
   vec4 light_pos;
@@ -699,6 +701,7 @@ static void pass_light_uniform(int light_index, light* l, mat4 view, GLuint shad
   glUniform1f(glGetUniformLocation(shader_id, uniform_light_constant), l->constant);
   glUniform1f(glGetUniformLocation(shader_id, uniform_light_linear), l->linear);
   glUniform1f(glGetUniformLocation(shader_id, uniform_light_quadratic), l->quadratic);
+  glUniformMatrix4fv(glGetUniformLocation(shader_id, uniform_light_space_matrix), 1, GL_FALSE, (const GLfloat*) light_space_matrix);
 }
 
 static void fill_omnishadows_transforms(mat4 transforms[6], mat4* proj, vec3 light_pos) {
@@ -747,7 +750,7 @@ static void fill_omnishadows_transforms(mat4 transforms[6], mat4* proj, vec3 lig
   mat4_mul(transforms[5], *proj, transforms[5]);
 }
 
-void renderer_render_objects(object* objects[], int objects_length, object* screen_objects[], int screen_objects_length, light* sun, light* lights[], int lights_length, camera* camera, void (*ui_render_callback)(void), skybox* sky)
+void renderer_render_objects(object* objects[], int objects_length, object* screen_objects[], int screen_objects_length, light* lights[], int lights_length, camera* camera, void (*ui_render_callback)(void), skybox* sky)
 {
   GLint time;
   int width, height;
@@ -777,67 +780,80 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
   /*-------------------------------------------------------------------------------*/
   /*------------------------------directional shadows------------------------------*/
   /*-------------------------------------------------------------------------------*/
-  glClearColor(183.0f / 255.0f, 220.0f / 255.0f, 244.0f / 255.0f, 1.0f);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  mat4 light_space_matrices[lights_length];
 
-  mat4 light_proj, light_view, light_space;
-  mat4_ortho(light_proj, -renderer_shadow_size, renderer_shadow_size, -renderer_shadow_size, renderer_shadow_size, renderer_shadow_near, renderer_shadow_far);
-  vec3 up = { 0.0f, 0.0f, 1.0f };
+  for (int l = 0; l < lights_length; l++) {
+    if (lights[l]->type != DIRECTIONAL) continue;
 
-  // move sun with camera
-  vec3 sun_cam_pos;
-  sun_cam_pos[0] = camera->pos[0] + sun->position[0];
-  sun_cam_pos[1] = sun->position[1];
-  sun_cam_pos[2] = camera->pos[2] + sun->position[2];
+    glClearColor(183.0f / 255.0f, 220.0f / 255.0f, 244.0f / 255.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  mat4_look_at(light_view, sun_cam_pos, sun->dir, up);
-  mat4_mul(light_space, light_proj, light_view);
+    mat4 light_proj, light_view, light_space;
+    mat4_ortho(light_proj, -renderer_shadow_size, renderer_shadow_size, -renderer_shadow_size, renderer_shadow_size, renderer_shadow_near, renderer_shadow_far);
+    vec3 up = { 0.0f, 0.0f, 1.0f };
 
-  // render scene from light's point of view
-  glUseProgram(renderer_shadow_shader);
-  glUniformMatrix4fv(glGetUniformLocation(renderer_shadow_shader, "light_space_matrix"), 1, GL_FALSE, (const GLfloat*) light_space);
+    // move directional light with camera
+    vec3 light_cam_pos;
+    light_cam_pos[0] = camera->pos[0] + lights[l]->position[0];
+    light_cam_pos[1] = lights[l]->position[1];
+    light_cam_pos[2] = camera->pos[2] + lights[l]->position[2];
 
-  // reset viewport and clear color
-  glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-  glBindFramebuffer(GL_FRAMEBUFFER, renderer_depth_fbo);
-  glClear(GL_DEPTH_BUFFER_BIT);
-  // glCullFace(GL_FRONT);
-  render_objects(objects, objects_length, renderer_shadow_shader);
-  // glCullFace(GL_BACK);
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    mat4_look_at(light_view, light_cam_pos, lights[l]->dir, up);
+    mat4_mul(light_space, light_proj, light_view);
+
+    // render scene from light's point of view
+    glUseProgram(renderer_shadow_shader);
+    glUniformMatrix4fv(glGetUniformLocation(renderer_shadow_shader, "light_space_matrix"), 1, GL_FALSE, (const GLfloat*) light_space);
+
+    mat4_copy(light_space_matrices[l], light_space);
+
+    // reset viewport and clear color
+    glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+    glBindFramebuffer(GL_FRAMEBUFFER, renderer_depth_fbo);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    // glCullFace(GL_FRONT);
+    render_objects(objects, objects_length, renderer_shadow_shader);
+    // glCullFace(GL_BACK);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  }
 
   /*-----------------------------------------------------------------------------------*/
   /*------------------------------omnidirectional shadows------------------------------*/
   /*-----------------------------------------------------------------------------------*/
-  glClearColor(183.0f / 255.0f, 220.0f / 255.0f, 244.0f / 255.0f, 1.0f);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
   float omni_shadows_near_plane = 1.0f;
   float omni_shadows_far_plane = 25.0f;
-  mat4 omni_shadows_p;
-  mat4_perspective(omni_shadows_p, to_radians(90.0f), (float)SHADOW_WIDTH / SHADOW_HEIGHT, omni_shadows_near_plane, omni_shadows_far_plane);
 
-  // cubemap transforms TODO: do this for all lights
-  mat4 omni_shadows_transforms[6];
-  fill_omnishadows_transforms(omni_shadows_transforms, &omni_shadows_p, lights[0]->position);
+  for (int l = 0; l < lights_length; l++) {
+    if (lights[l]->type != POINT) continue;
 
-  // render scene to cubemap
-  glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-  glBindFramebuffer(GL_FRAMEBUFFER, renderer_depth_cubemap_fbo);
-  glClear(GL_DEPTH_BUFFER_BIT);
-  
-  glUseProgram(renderer_omni_shadow_shader);
-  for (int i = 0; i < 6; i++) {
-    char uniform[256];
-    sprintf(uniform, "shadow_matrices[%d]", i);
-    glUniformMatrix4fv(glGetUniformLocation(renderer_omni_shadow_shader, uniform), 1, GL_FALSE, (const GLfloat*) omni_shadows_transforms[i]);
+    glClearColor(183.0f / 255.0f, 220.0f / 255.0f, 244.0f / 255.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    mat4 omni_shadows_p;
+    mat4_perspective(omni_shadows_p, to_radians(90.0f), (float)SHADOW_WIDTH / SHADOW_HEIGHT, omni_shadows_near_plane, omni_shadows_far_plane);
+
+    // cubemap transforms TODO: do this for all lights
+    mat4 omni_shadows_transforms[6];
+    fill_omnishadows_transforms(omni_shadows_transforms, &omni_shadows_p, lights[l]->position);
+
+    // render scene to cubemap
+    glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+    glBindFramebuffer(GL_FRAMEBUFFER, renderer_depth_cubemap_fbo);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    
+    glUseProgram(renderer_omni_shadow_shader);
+    for (int i = 0; i < 6; i++) {
+      char uniform[256];
+      sprintf(uniform, "shadow_matrices[%d]", i);
+      glUniformMatrix4fv(glGetUniformLocation(renderer_omni_shadow_shader, uniform), 1, GL_FALSE, (const GLfloat*) omni_shadows_transforms[i]);
+    }
+    glUniform1f(glGetUniformLocation(renderer_omni_shadow_shader, "far_plane"), omni_shadows_far_plane);
+    glUniform3fv(glGetUniformLocation(renderer_omni_shadow_shader, "light_pos"), 1, lights[l]->position);
+
+    render_objects(objects, objects_length, renderer_omni_shadow_shader);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
   }
-  glUniform1f(glGetUniformLocation(renderer_omni_shadow_shader, "far_plane"), omni_shadows_far_plane);
-  glUniform3fv(glGetUniformLocation(renderer_omni_shadow_shader, "light_pos"), 1, lights[0]->position);
-
-  render_objects(objects, objects_length, renderer_omni_shadow_shader);
-
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   /*-------------------------------------------------------------------------*/
   /*------------------------------geometry pass------------------------------*/
@@ -941,13 +957,10 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
   GLint uniform_camera_pos = glGetUniformLocation(renderer_lighting_shader, "camera_pos");
   glUniform3fv(uniform_camera_pos, 1, (const GLfloat*) camera->pos);
 
-  // pass sun as light
-  pass_light_uniform(0, sun, v, renderer_lighting_shader);
-
   // lights
-  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "lights_nr"), lights_length + 1);
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "lights_nr"), lights_length);
   for (int i = 0; i < lights_length; i++) {
-    pass_light_uniform(i+1, lights[i], v, renderer_lighting_shader);
+    pass_light_uniform(i, lights[i], v, light_space_matrices[i], renderer_lighting_shader);
   }
 
   // shadow map to shader
@@ -978,9 +991,6 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
     glActiveTexture(GL_TEXTURE6);
     glBindTexture(GL_TEXTURE_CUBE_MAP, sky->texture_id);
   }
-
-  // pass light-space matrix to shader
-  glUniformMatrix4fv(glGetUniformLocation(renderer_lighting_shader, "light_space_matrix"), 1, GL_FALSE, (const GLfloat*) light_space);
 
   // pass time to shader
   glUniform1f(glGetUniformLocation(renderer_lighting_shader, "time"), (float)glfwGetTime());

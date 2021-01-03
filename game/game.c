@@ -14,7 +14,7 @@ float fps;
 //object* sun_sphere;
 light sun;
 
-light* lights;
+light* lights[MAX_LIGHTS];
 int num_lights;
 // ALuint sound_car;
 enum game_state state;
@@ -24,6 +24,7 @@ object* sun_sphere;
 
 // point light
 light point_light;
+light point_light_2;
 
 // skybox
 skybox sky;
@@ -104,11 +105,11 @@ void game_init() {
   sun.color[0] = light_s * 1.0f;
   sun.color[1] = light_s * 0.86f;
   sun.color[2] = light_s * 0.53f;
-  sun.ambient = 1.0f;
-  sun.ambient = 0.0f;
+  sun.ambient = 0.5f;
+  /*sun.ambient = 0.0f;
   sun.color[0] = 0.0;
   sun.color[1] = 0.0;
-  sun.color[2] = 0.0;
+  sun.color[2] = 0.0;*/
 
   sun_sphere = factory_create_sphere(5, 10, 10);
   vec3_copy(sun_sphere->position, sun.position);
@@ -127,10 +128,22 @@ void game_init() {
   point_light.color[1] = 1.0;
   point_light.color[2] = 1.0;
 
+  point_light_2.type = POINT;
+  point_light_2.position[0] = 0;
+  point_light_2.position[1] = 1;
+  point_light_2.position[2] = 2;
+  point_light_2.ambient = 0.5;
+  point_light_2.constant = 1.0;
+  point_light_2.linear = 0.09;
+  point_light_2.quadratic = 0.032;
+  point_light_2.color[0] = 0.0;
+  point_light_2.color[1] = 1.0;
+  point_light_2.color[2] = 1.0;
+
   // lights
-  lights = malloc(MAX_LIGHTS * sizeof(light));
-  lights[0] = point_light;
-  num_lights = 1;
+  lights[0] = &point_light;
+  lights[1] = &point_light_2;
+  num_lights = 2;
 
   // skybox
   const char* faces[6];
@@ -413,7 +426,7 @@ void game_update() {
   input_update();
 
   // lights
-  lights[0].position[2] = 8 * sinf(current_frame);
+  lights[0]->position[2] = 8 * sinf(current_frame);
   // sun.position[0] = 10 + sinf(current_frame) * 5;
   /* sun.position[0] = game_camera.pos[0];
   sun.position[1] = game_camera.pos[1] + 15;
@@ -474,7 +487,7 @@ void game_render() {
   render_list_add(screen_render_list, &player_weapon);
 
   // render
-  renderer_render_objects(game_render_list->objects, game_render_list->size, screen_render_list->objects, screen_render_list->size, &sun, &lights, 1, &game_camera, ui_render, &sky);
+  renderer_render_objects(game_render_list->objects, game_render_list->size, screen_render_list->objects, screen_render_list->size, lights, num_lights, &game_camera, ui_render, &sky);
 }
 
 void game_free() {
@@ -487,8 +500,6 @@ void game_free() {
   object_free(block);
 
   object_free(sun_sphere);
-
-  free(lights);
 
   ui_free();
   skybox_free(&sky);

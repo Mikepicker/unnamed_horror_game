@@ -22,6 +22,7 @@ struct Light {
   float constant;
   float linear;
   float quadratic;
+  mat4 light_space_matrix;
 };
 
 uniform Light lights[MAX_LIGHTS];
@@ -35,7 +36,6 @@ uniform vec3 camera_pos;
 uniform sampler2D shadow_map;
 uniform float shadow_bias;
 uniform int shadow_pcf_enabled;
-uniform mat4 light_space_matrix;
 
 // omni shadow map
 uniform samplerCube omni_shadow_map;
@@ -185,7 +185,6 @@ void main()
   float receive_shadows = texture(g_position, TexCoords).a;
 
   vec4 frag_pos_world_space = view_inv * vec4(frag_pos, 1.0);
-  vec4 frag_pos_light_space = light_space_matrix * frag_pos_world_space;
 
   float ao = 1.0;
   if (ssao_enabled > 0) {
@@ -204,6 +203,7 @@ void main()
   for (int i = 0; i < min(lights_nr, MAX_LIGHTS); i++) {
 
     if (lights[i].type == 0) { // directional light
+      vec4 frag_pos_light_space = lights[i].light_space_matrix * frag_pos_world_space;
       lighting += calc_dir_light(lights[i], diffuse, specular, normal, ao, view_dir, frag_pos_light_space, receive_shadows);
     } else if (lights[i].type == 1) { // point light
       lighting += calc_point_light(lights[i], diffuse, specular, normal, ao, view_dir, frag_pos, frag_pos_world_space.xyz, receive_shadows);
