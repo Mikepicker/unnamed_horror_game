@@ -13,9 +13,9 @@ uniform sampler2D texture_diffuse;
 uniform sampler2D texture_normal;
 uniform sampler2D texture_specular;
 
-uniform int hasDiffuseMap;
-uniform int hasNormalMap;
-uniform int hasSpecularMap;
+uniform int has_diffuse_map;
+uniform int has_normal_map;
+uniform int has_specular_map;
 
 uniform int texture_subdivision;
 
@@ -29,7 +29,7 @@ struct Material {
 }; 
 uniform Material material;
 
-vec3 computeNormal()
+vec3 compute_normal()
 {
   // obtain normal from normal map in range [0,1]
   vec3 normal = texture(texture_normal, TexCoords * texture_subdivision).rgb;
@@ -48,16 +48,16 @@ void main() {
   gPosition.a = receive_shadows;
 
   // also store the per-fragment normals into the gbuffer
-  gNormal = hasNormalMap == 1 ? computeNormal() : normalize(Normal);
+  gNormal = has_normal_map == 1 ? compute_normal() : normalize(Normal);
   // and the diffuse per-fragment color
-  gAlbedo = hasDiffuseMap == 1 ? texture(texture_diffuse, TexCoords * texture_subdivision).rgba : vec4(material.diffuse.rgb, 1.0);
+  gAlbedo = has_diffuse_map == 1 ? texture(texture_diffuse, TexCoords * texture_subdivision).rgba : vec4(material.diffuse.rgb, 1.0);
   gAlbedo.rgb *= material.diffuse;
 
   if (gAlbedo.a < 0.1)
     discard;
 
   gSpec = material.specular;
-  if (hasSpecularMap > 0) {
+  if (has_specular_map > 0) {
     gSpec *= texture(texture_specular, TexCoords * texture_subdivision).r;
   }
 

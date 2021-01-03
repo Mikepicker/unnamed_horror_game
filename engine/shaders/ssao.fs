@@ -4,12 +4,12 @@ out float FragColor;
 
 in vec2 TexCoords;
 
-uniform sampler2D gPosition;
-uniform sampler2D gNormal;
-uniform sampler2D texNoise;
+uniform sampler2D g_position;
+uniform sampler2D g_normal;
+uniform sampler2D tex_noise;
 
-uniform int screenWidth;
-uniform int screenHeight;
+uniform int screen_width;
+uniform int screen_height;
 
 uniform vec3 samples[SSAO_MAX_KERNEL_SIZE];
 
@@ -21,15 +21,15 @@ uniform mat4 projection;
 
 void main() {
   // tile noise texture over screen based on screen dimensions divided by noise size
-  vec2 noiseScale = vec2(screenWidth/4.0, screenHeight/4.0); 
-  // noiseScale = vec2(1, 1);
+  vec2 noise_scale = vec2(screen_width/4.0, screen_height/4.0); 
+  // noise_scale = vec2(1, 1);
 
   // get input for SSAO algorithm
-  vec3 fragPos = texture(gPosition, TexCoords).xyz;
-  vec3 normal = normalize(texture(gNormal, TexCoords).rgb);
-  vec3 randomVec = normalize(texture(texNoise, TexCoords * noiseScale).xyz);
+  vec3 frag_pos = texture(g_position, TexCoords).xyz;
+  vec3 normal = normalize(texture(g_normal, TexCoords).rgb);
+  vec3 random_vec = normalize(texture(tex_noise, TexCoords * noise_scale).xyz);
   // create TBN change-of-basis matrix: from tangent-space to view-space
-  vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
+  vec3 tangent = normalize(random_vec - normal * dot(random_vec, normal));
   vec3 bitangent = cross(normal, tangent);
   mat3 TBN = mat3(tangent, bitangent, normal);
   // iterate over the sample kernel and calculate occlusion factor
@@ -37,7 +37,7 @@ void main() {
   for(int i = 0; i < SSAO_MAX_KERNEL_SIZE; i++) {
     // get sample position
     vec3 sample = TBN * samples[i]; // from tangent to view-space
-    sample = fragPos + sample * radius; 
+    sample = frag_pos + sample * radius; 
 
     // project sample position (to sample texture) (to get position on screen/texture)
     vec4 offset = vec4(sample, 1.0);
@@ -46,18 +46,18 @@ void main() {
     offset.xyz = offset.xyz * 0.5 + 0.5; // transform to range 0.0 - 1.0
 
     // get sample depth
-    float sampleDepth = texture(gPosition, offset.xy).z; // get depth value of kernel sample
+    float sample_depth = texture(g_position, offset.xy).z; // get depth value of kernel sample
 
     // range check & accumulate
-    float rangeCheck = smoothstep(0.0, 1.0, radius / abs(fragPos.z - sampleDepth));
-    occlusion += (sampleDepth >= sample.z + bias ? 1.0 : 0.0) * rangeCheck;           
+    float range_check = smoothstep(0.0, 1.0, radius / abs(frag_pos.z - sample_depth));
+    occlusion += (sample_depth >= sample.z + bias ? 1.0 : 0.0) * range_check;           
 
   }
   occlusion = 1.0 - (occlusion / SSAO_MAX_KERNEL_SIZE);
 
   FragColor = occlusion;
   // FragColor = normal.z;
-  // FragColor = texture(texNoise, TexCoords * noiseScale).x;
-  // FragColor = texture(texNoise, TexCoords * noiseScale).x;
-  // FragColor = fragPos.z;
+  // FragColor = texture(tex_noise, TexCoords * noise_scale).x;
+  // FragColor = texture(tex_noise, TexCoords * noise_scale).x;
+  // FragColor = frag_pos.z;
 }

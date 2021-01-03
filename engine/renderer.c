@@ -509,10 +509,10 @@ static void render_object(object* o, GLuint shader_id) {
 
   // handle animated objects
   if (o->skel != NULL) {
-    glUniformMatrix4fv(glGetUniformLocation(shader_id, "boneTransforms"), o->skel->joint_count, GL_FALSE, (const GLfloat*) o->skel->current_frame.transforms);
-    glUniform1i(glGetUniformLocation(shader_id, "hasSkeleton"), 1);
+    glUniformMatrix4fv(glGetUniformLocation(shader_id, "bone_transforms"), o->skel->joint_count, GL_FALSE, (const GLfloat*) o->skel->current_frame.transforms);
+    glUniform1i(glGetUniformLocation(shader_id, "has_skeleton"), 1);
   } else {
-    glUniform1i(glGetUniformLocation(shader_id, "hasSkeleton"), 0);
+    glUniform1i(glGetUniformLocation(shader_id, "has_skeleton"), 0);
   }
 
   // render params
@@ -536,9 +536,9 @@ static void render_object(object* o, GLuint shader_id) {
       glUniform1i(glGetUniformLocation(shader_id, "texture_diffuse"), 1);
       glActiveTexture(GL_TEXTURE1);
       glBindTexture(GL_TEXTURE_2D, mesh->texture_id);
-      glUniform1i(glGetUniformLocation(shader_id, "hasDiffuseMap"), 1);
+      glUniform1i(glGetUniformLocation(shader_id, "has_diffuse_map"), 1);
     } else {
-      glUniform1i(glGetUniformLocation(shader_id, "hasDiffuseMap"), 0);
+      glUniform1i(glGetUniformLocation(shader_id, "has_diffuse_map"), 0);
     }
 
     // bind normal map
@@ -546,9 +546,9 @@ static void render_object(object* o, GLuint shader_id) {
       glUniform1i(glGetUniformLocation(shader_id, "texture_normal"), 2);
       glActiveTexture(GL_TEXTURE2);
       glBindTexture(GL_TEXTURE_2D, mesh->normal_map_id);
-      glUniform1i(glGetUniformLocation(shader_id, "hasNormalMap"), 1);
+      glUniform1i(glGetUniformLocation(shader_id, "has_normal_map"), 1);
     } else {
-      glUniform1i(glGetUniformLocation(shader_id, "hasNormalMap"), 0);
+      glUniform1i(glGetUniformLocation(shader_id, "has_normal_map"), 0);
     }
 
     // bind specular map
@@ -556,9 +556,9 @@ static void render_object(object* o, GLuint shader_id) {
       glUniform1i(glGetUniformLocation(shader_id, "texture_specular"), 3);
       glActiveTexture(GL_TEXTURE3);
       glBindTexture(GL_TEXTURE_2D, mesh->specular_map_id);
-      glUniform1i(glGetUniformLocation(shader_id, "hasSpecularMap"), 1);
+      glUniform1i(glGetUniformLocation(shader_id, "has_specular_map"), 1);
     } else {
-      glUniform1i(glGetUniformLocation(shader_id, "hasSpecularMap"), 0);
+      glUniform1i(glGetUniformLocation(shader_id, "has_specular_map"), 0);
     }
 
     // bind mask map
@@ -566,9 +566,9 @@ static void render_object(object* o, GLuint shader_id) {
       glUniform1i(glGetUniformLocation(shader_id, "texture_mask"), 4);
       glActiveTexture(GL_TEXTURE4);
       glBindTexture(GL_TEXTURE_2D, mesh->mask_map_id);
-      glUniform1i(glGetUniformLocation(shader_id, "hasMaskMap"), 1);
+      glUniform1i(glGetUniformLocation(shader_id, "has_mask_map"), 1);
     } else {
-      glUniform1i(glGetUniformLocation(shader_id, "hasMaskMap"), 0);
+      glUniform1i(glGetUniformLocation(shader_id, "has_mask_map"), 0);
     }
 
     // render the mesh
@@ -795,7 +795,7 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
 
   // render scene from light's point of view
   glUseProgram(renderer_shadow_shader);
-  glUniformMatrix4fv(glGetUniformLocation(renderer_shadow_shader, "lightSpaceMatrix"), 1, GL_FALSE, (const GLfloat*) light_space);
+  glUniformMatrix4fv(glGetUniformLocation(renderer_shadow_shader, "light_space_matrix"), 1, GL_FALSE, (const GLfloat*) light_space);
 
   // reset viewport and clear color
   glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
@@ -829,11 +829,11 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
   glUseProgram(renderer_omni_shadow_shader);
   for (int i = 0; i < 6; i++) {
     char uniform[256];
-    sprintf(uniform, "shadowMatrices[%d]", i);
+    sprintf(uniform, "shadow_matrices[%d]", i);
     glUniformMatrix4fv(glGetUniformLocation(renderer_omni_shadow_shader, uniform), 1, GL_FALSE, (const GLfloat*) omni_shadows_transforms[i]);
   }
   glUniform1f(glGetUniformLocation(renderer_omni_shadow_shader, "far_plane"), omni_shadows_far_plane);
-  glUniform3fv(glGetUniformLocation(renderer_omni_shadow_shader, "lightPos"), 1, lights[0]->position);
+  glUniform3fv(glGetUniformLocation(renderer_omni_shadow_shader, "light_pos"), 1, lights[0]->position);
 
   render_objects(objects, objects_length, renderer_omni_shadow_shader);
 
@@ -889,18 +889,18 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
       glUniform3fv(glGetUniformLocation(renderer_ssao_shader, uniform_sample), 1, (const GLfloat*) renderer_ssao_kernel[i]);
     }
 
-    glUniform1i(glGetUniformLocation(renderer_ssao_shader, "gPosition"), 0);
+    glUniform1i(glGetUniformLocation(renderer_ssao_shader, "g_position"), 0);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, renderer_g_position);
-    glUniform1i(glGetUniformLocation(renderer_ssao_shader, "gNormal"), 1);
+    glUniform1i(glGetUniformLocation(renderer_ssao_shader, "g_normal"), 1);
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, renderer_g_normal);
-    glUniform1i(glGetUniformLocation(renderer_ssao_shader, "texNoise"), 2);
+    glUniform1i(glGetUniformLocation(renderer_ssao_shader, "tex_noise"), 2);
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, renderer_ssao_noise_texture);
 
-    glUniform1i(glGetUniformLocation(renderer_ssao_shader, "screenWidth"), width);
-    glUniform1i(glGetUniformLocation(renderer_ssao_shader, "screenHeight"), height);
+    glUniform1i(glGetUniformLocation(renderer_ssao_shader, "screen_width"), width);
+    glUniform1i(glGetUniformLocation(renderer_ssao_shader, "screen_height"), height);
     glUniformMatrix4fv(glGetUniformLocation(renderer_ssao_shader, "projection"), 1, GL_FALSE, (const GLfloat*) p);
 
     render_quad();
@@ -924,53 +924,53 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   glUseProgram(renderer_lighting_shader);
-  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "gPosition"), 0);
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "g_position"), 0);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, renderer_g_position);
-  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "gNormal"), 1);
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "g_normal"), 1);
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_2D, renderer_g_normal);
-  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "gAlbedo"), 2);
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "g_albedo"), 2);
   glActiveTexture(GL_TEXTURE2);
   glBindTexture(GL_TEXTURE_2D, renderer_g_albedo);
-  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "gSpec"), 3);
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "g_spec"), 3);
   glActiveTexture(GL_TEXTURE3);
   glBindTexture(GL_TEXTURE_2D, renderer_g_spec);
 
   // camera position
-  GLint uniform_camera_pos = glGetUniformLocation(renderer_lighting_shader, "cameraPos");
+  GLint uniform_camera_pos = glGetUniformLocation(renderer_lighting_shader, "camera_pos");
   glUniform3fv(uniform_camera_pos, 1, (const GLfloat*) camera->pos);
 
   // pass sun as light
   pass_light_uniform(0, sun, v, renderer_lighting_shader);
 
   // lights
-  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "lightsNr"), lights_length + 1);
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "lights_nr"), lights_length + 1);
   for (int i = 0; i < lights_length; i++) {
     pass_light_uniform(i+1, lights[i], v, renderer_lighting_shader);
   }
 
   // shadow map to shader
-  glUniform1f(glGetUniformLocation(renderer_lighting_shader, "shadowBias"), renderer_shadow_bias);
-  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "shadowPCFEnabled"), renderer_shadow_pcf_enabled);
+  glUniform1f(glGetUniformLocation(renderer_lighting_shader, "shadow_bias"), renderer_shadow_bias);
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "shadow_pcf_enabled"), renderer_shadow_pcf_enabled);
 
   // pass inverse of view matrix (for shadows)
   mat4 view_inv;
   mat4_invert(view_inv, v);
-  glUniformMatrix4fv(glGetUniformLocation(renderer_lighting_shader, "viewInv"), 1, GL_FALSE, (const GLfloat*) view_inv);
+  glUniformMatrix4fv(glGetUniformLocation(renderer_lighting_shader, "view_inv"), 1, GL_FALSE, (const GLfloat*) view_inv);
 
   // pass shadow depth map
-  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "shadowMap"), 4);
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "shadow_map"), 4);
   glActiveTexture(GL_TEXTURE4);
   glBindTexture(GL_TEXTURE_2D, renderer_depth_map);
 
   // pass omni-shadow depth map
-  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "omniShadowMap"), 5);
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "omni_shadow_map"), 5);
   glActiveTexture(GL_TEXTURE5);
   glBindTexture(GL_TEXTURE_CUBE_MAP, renderer_depth_cubemap);
 
   // pass omni-shadow far plane
-  glUniform1f(glGetUniformLocation(renderer_lighting_shader, "omniShadowFarPlane"), omni_shadows_far_plane);
+  glUniform1f(glGetUniformLocation(renderer_lighting_shader, "omni_shadow_far_plane"), omni_shadows_far_plane);
 
   // skybox to shader
   if (sky) {
@@ -980,7 +980,7 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
   }
 
   // pass light-space matrix to shader
-  glUniformMatrix4fv(glGetUniformLocation(renderer_lighting_shader, "lightSpaceMatrix"), 1, GL_FALSE, (const GLfloat*) light_space);
+  glUniformMatrix4fv(glGetUniformLocation(renderer_lighting_shader, "light_space_matrix"), 1, GL_FALSE, (const GLfloat*) light_space);
 
   // pass time to shader
   glUniform1f(glGetUniformLocation(renderer_lighting_shader, "time"), (float)glfwGetTime());
@@ -1048,7 +1048,7 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
   glUseProgram(renderer_debug_shader);
   glUniform1f(glGetUniformLocation(renderer_debug_shader, "near_plane"), renderer_shadow_near);
   glUniform1f(glGetUniformLocation(renderer_debug_shader, "far_plane"), renderer_shadow_far);
-  glUniform1i(glGetUniformLocation(renderer_debug_shader, "depthMap"), 0);
+  glUniform1i(glGetUniformLocation(renderer_debug_shader, "depth_map"), 0);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, renderer_depth_map);
   if (renderer_shadows_debug_enabled) render_quad();

@@ -19,78 +19,78 @@ uniform int fxaa_enabled;
 vec3 fxaa() {
   vec2 u_texelStep = vec2(1 / width, 1 / height);
 
-  vec3 rgbM = texture(frame, TexCoords).rgb;
+  vec3 rgb_m = texture(frame, TexCoords).rgb;
 
   // Sampling neighbour texels. Offsets are adapted to OpenGL texture coordinates. 
-  vec3 rgbNW = textureOffset(frame, TexCoords, ivec2(-1, 1)).rgb;
-  vec3 rgbNE = textureOffset(frame, TexCoords, ivec2(1, 1)).rgb;
-  vec3 rgbSW = textureOffset(frame, TexCoords, ivec2(-1, -1)).rgb;
-  vec3 rgbSE = textureOffset(frame, TexCoords, ivec2(1, -1)).rgb;
+  vec3 rgb_nw = textureOffset(frame, TexCoords, ivec2(-1, 1)).rgb;
+  vec3 rgb_ne = textureOffset(frame, TexCoords, ivec2(1, 1)).rgb;
+  vec3 rgb_sw = textureOffset(frame, TexCoords, ivec2(-1, -1)).rgb;
+  vec3 rgb_se = textureOffset(frame, TexCoords, ivec2(1, -1)).rgb;
 
   // see http://en.wikipedia.org/wiki/Grayscale
-  const vec3 toLuma = vec3(0.299, 0.587, 0.114);
+  const vec3 to_luma = vec3(0.299, 0.587, 0.114);
 
   // Convert from RGB to luma.
-  float lumaNW = dot(rgbNW, toLuma);
-  float lumaNE = dot(rgbNE, toLuma);
-  float lumaSW = dot(rgbSW, toLuma);
-  float lumaSE = dot(rgbSE, toLuma);
-  float lumaM = dot(rgbM, toLuma);
+  float luma_nw = dot(rgb_nw, to_luma);
+  float luma_ne = dot(rgb_ne, to_luma);
+  float luma_sw = dot(rgb_sw, to_luma);
+  float luma_se = dot(rgb_se, to_luma);
+  float luma_m = dot(rgb_m, to_luma);
 
   // Gather minimum and maximum luma.
-  float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));
-  float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));
+  float luma_min = min(luma_m, min(min(luma_nw, luma_ne), min(luma_sw, luma_se)));
+  float luma_max = max(luma_m, max(max(luma_nw, luma_ne), max(luma_sw, luma_se)));
 
   // If contrast is lower than a maximum threshold ...
-  if (lumaMax - lumaMin <= lumaMax * LUMA_THRESHOLD) {
+  if (luma_max - luma_min <= luma_max * LUMA_THRESHOLD) {
     // ... do no AA and return.
-    return rgbM;
+    return rgb_m;
   }
 
   // Sampling is done along the gradient.
-  vec2 samplingDirection;	
-  samplingDirection.x = -((lumaNW + lumaNE) - (lumaSW + lumaSE));
-  samplingDirection.y =  ((lumaNW + lumaSW) - (lumaNE + lumaSE));
+  vec2 sampling_direction;	
+  sampling_direction.x = -((luma_nw + luma_ne) - (luma_sw + luma_se));
+  sampling_direction.y =  ((luma_nw + luma_sw) - (luma_ne + luma_se));
 
   // Sampling step distance depends on the luma: The brighter the sampled texels, the smaller the final sampling step direction.
   // This results, that brighter areas are less blurred/more sharper than dark areas.  
-  float samplingDirectionReduce = max((lumaNW + lumaNE + lumaSW + lumaSE) * 0.25 * MUL_REDUCE, MIN_REDUCE);
+  float sampling_direction_reduce = max((luma_nw + luma_ne + luma_sw + luma_se) * 0.25 * MUL_REDUCE, MIN_REDUCE);
 
   // Factor for norming the sampling direction plus adding the brightness influence. 
-  float minSamplingDirectionFactor = 1.0 / (min(abs(samplingDirection.x), abs(samplingDirection.y)) + samplingDirectionReduce);
+  float min_sampling_direction_factor = 1.0 / (min(abs(sampling_direction.x), abs(sampling_direction.y)) + sampling_direction_reduce);
 
   // Calculate final sampling direction vector by reducing, clamping to a range and finally adapting to the texture size. 
-  samplingDirection = clamp(samplingDirection * minSamplingDirectionFactor, vec2(-MAX_SPAN), vec2(MAX_SPAN)) * u_texelStep;
+  sampling_direction = clamp(sampling_direction * min_sampling_direction_factor, vec2(-MAX_SPAN), vec2(MAX_SPAN)) * u_texelStep;
 
   // Inner samples on the tab.
-  vec3 rgbSampleNeg = texture(frame, TexCoords + samplingDirection * (1.0/3.0 - 0.5)).rgb;
-  vec3 rgbSamplePos = texture(frame, TexCoords + samplingDirection * (2.0/3.0 - 0.5)).rgb;
+  vec3 rgb_sample_neg = texture(frame, TexCoords + sampling_direction * (1.0/3.0 - 0.5)).rgb;
+  vec3 rgb_sample_pos = texture(frame, TexCoords + sampling_direction * (2.0/3.0 - 0.5)).rgb;
 
-  vec3 rgbTwoTab = (rgbSamplePos + rgbSampleNeg) * 0.5;  
+  vec3 rgb_two_tab = (rgb_sample_pos + rgb_sample_neg) * 0.5;  
 
   // Outer samples on the tab.
-  vec3 rgbSampleNegOuter = texture(frame, TexCoords + samplingDirection * (0.0/3.0 - 0.5)).rgb;
-  vec3 rgbSamplePosOuter = texture(frame, TexCoords + samplingDirection * (3.0/3.0 - 0.5)).rgb;
+  vec3 rgb_sample_neg_outer = texture(frame, TexCoords + sampling_direction * (0.0/3.0 - 0.5)).rgb;
+  vec3 rgb_sample_pos_outer = texture(frame, TexCoords + sampling_direction * (3.0/3.0 - 0.5)).rgb;
 
-  vec3 rgbFourTab = (rgbSamplePosOuter + rgbSampleNegOuter) * 0.25 + rgbTwoTab * 0.5;   
+  vec3 rgb_four_tab = (rgb_sample_pos_outer + rgb_sample_neg_outer) * 0.25 + rgb_two_tab * 0.5;   
 
   // Calculate luma for checking against the minimum and maximum value.
-  float lumaFourTab = dot(rgbFourTab, toLuma);
+  float luma_four_tab = dot(rgb_four_tab, to_luma);
 
   // Are outer samples of the tab beyond the edge ... 
-  if (lumaFourTab < lumaMin || lumaFourTab > lumaMax) {
+  if (luma_four_tab < luma_min || luma_four_tab > luma_max) {
     // ... yes, so use only two samples.
-    // rgbTwoTab.r = 1.0;
-    return rgbTwoTab; 
+    // rgb_two_tab.r = 1.0;
+    return rgb_two_tab; 
   }
   else {
     // ... no, so use four samples. 
-    // rgbFourTab.r = 1.0;
-    return rgbFourTab;
+    // rgb_four_tab.r = 1.0;
+    return rgb_four_tab;
   }
 }
 
-vec3 uncharted2Tonemap(vec3 x) {
+vec3 uncharted2_tonemap(vec3 x) {
 	const float A = 0.15;
 	const float B = 0.50;
 	const float C = 0.10;
@@ -100,12 +100,12 @@ vec3 uncharted2Tonemap(vec3 x) {
 	return ((x * (A * x + C * B) + D * E) / (x * (A * x + B) + D * F)) - E / F;
 }
 
-vec3 tonemapFilmic(vec3 color) {
+vec3 tonemap_filmic(vec3 color) {
 	vec3 x = max(vec3(0.0), color - 0.004);
 	return (x * (6.2 * x + 0.5)) / (x * (6.2 * x + 1.7) + 0.06);
 }
 
-vec3 acesFilmTonemap(vec3 x) {
+vec3 aces_film_tonemap(vec3 x) {
     const float a = 2.51;
     const float b = 0.03;
     const float c = 2.43;
@@ -114,7 +114,7 @@ vec3 acesFilmTonemap(vec3 x) {
     return clamp((x * (a * x + b)) / (x * (c * x + d ) + e), 0.0, 1.0);
 }
 
-vec3 reinhardTonemap(vec3 x) {
+vec3 reinhard_tonemap(vec3 x) {
   return x / (x + vec3(1.0));
   // return vec3(1.0) - exp(-x);
 }
@@ -128,8 +128,8 @@ void main() {
   }
 
   // Tonemap
-  // FragColor = acesFilmTonemap(FragColor);
-  // FragColor = tonemapFilmic(FragColor);
+  // FragColor = aces_film_tonemap(FragColor);
+  // FragColor = tonemap_filmic(FragColor);
   
   // Gamma correction
   // FragColor = pow(FragColor, vec3(1.0 / GAMMA));

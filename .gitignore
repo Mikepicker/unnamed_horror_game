@@ -4,3 +4,4 @@ game/craft
 *.o
 game/maps/*
 tags
+*.bmp
