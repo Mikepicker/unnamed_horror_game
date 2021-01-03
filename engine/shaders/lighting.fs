@@ -53,6 +53,15 @@ uniform mat4 viewInv;
 uniform int ssao_enabled;
 uniform int ssao_debug;
 
+// samples for omni-directional shadows
+vec3 sample_offset_directions[20] = vec3[] (
+  vec3( 1,  1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1,  1,  1), 
+  vec3( 1,  1, -1), vec3( 1, -1, -1), vec3(-1, -1, -1), vec3(-1,  1, -1),
+  vec3( 1,  1,  0), vec3( 1, -1,  0), vec3(-1, -1,  0), vec3(-1,  1,  0),
+  vec3( 1,  0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1,  0, -1),
+  vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
+);
+
 float shadowCalculation(vec4 fragPosLightSpace, vec3 lightDir, vec3 normal) {
   // perform perspective divide
   vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
@@ -94,9 +103,18 @@ float omniShadowCalculation(vec3 fragPosWorldSpace, vec3 lightPosWorldSpace) {
 
   float currentDepth = length(fragToLight);  
 
-  float bias = 0.05; 
-  float shadow = currentDepth -  bias > closestDepth ? 1.0 : 0.0; 
+  float shadow = 0.0;
+  float bias   = 0.15;
+  int samples  = 20;
+  float viewDistance = length(cameraPos - fragPosWorldSpace);
+  float diskRadius = (1.0 + (viewDistance / omniShadowFarPlane)) / 25.0;
+  for (int i = 0; i < samples; i++) {
+    float closestDepth = texture(omniShadowMap, fragToLight + sample_offset_directions[i] * diskRadius).r;
+    closestDepth *= omniShadowFarPlane;   // undo mapping [0;1]
+    if (currentDepth - bias > closestDepth) shadow += 1.0;
+  }
 
+  shadow /= float(samples); 
   return shadow;
 }
 
