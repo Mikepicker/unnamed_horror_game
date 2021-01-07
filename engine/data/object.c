@@ -133,7 +133,9 @@ void object_set_position(object* o, vec3 pos) {
 
 void object_free(object* o) {
   if (o->num_meshes > 0) {
-    free(o->meshes[0].vertices);
+    for (int i = 0; i < o->num_meshes; i++) {
+      free(o->meshes[i].vertices);
+    }
   }
   free(o->meshes);
 

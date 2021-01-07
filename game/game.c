@@ -5,26 +5,21 @@
 camera game_camera;
 
 render_list* game_render_list;
-render_list* screen_render_list;
 float delta_time;
 float last_frame;
 float fps;
 
 // sun
-//object* sun_sphere;
-light sun;
 
 light* lights[MAX_LIGHTS];
 int num_lights;
 // ALuint sound_car;
 enum game_state state;
 
-// light sphere
-object* sun_sphere;
-
 // point light
 light point_light;
 light point_light_2;
+light point_light_3;
 
 // skybox
 skybox sky;
@@ -32,22 +27,12 @@ skybox sky;
 // ground
 object* ground;
 
-// where to place next cube
-vec3 place_target;
-
 // mutant
 entity mutant;
 vec3 target_pos;
 
-// sample enemy
-entity enemy;
-
-// sample item
-object* garand;
-
 // player
 object* player;
-object player_weapon;
 
 // dungeon
 object* block;
@@ -55,12 +40,6 @@ object blocks[DUNGEON_SIZE * DUNGEON_SIZE];
 
 // materials
 material mat_stone;
-
-// nature
-object trees[MAX_TREES];
-object* tree_1;
-object rocks[MAX_ROCKS];
-object* rock;
 
 void game_init() {
   // game camera
@@ -81,7 +60,6 @@ void game_init() {
 
   // render list
   game_render_list = render_list_new();
-  screen_render_list = render_list_new();
 
   // audio
   // audio_load_sound("assets/audio/test.wav", &microdrag.sound_car);
@@ -91,29 +69,6 @@ void game_init() {
 
   // init ui
   ui_init();
-
-  // sun
-  sun.type = DIRECTIONAL;
-  sun.position[0] = 0;
-  sun.position[1] = 60;
-  sun.position[2] = -10;
-  sun.dir[0] = -0.2f;
-  sun.dir[1] = -1.0f;
-  sun.dir[2] = -0.3f;
-
-  float light_s = 1;
-  sun.color[0] = light_s * 1.0f;
-  sun.color[1] = light_s * 0.86f;
-  sun.color[2] = light_s * 0.53f;
-  sun.ambient = 0.5f;
-  /*sun.ambient = 0.0f;
-  sun.color[0] = 0.0;
-  sun.color[1] = 0.0;
-  sun.color[2] = 0.0;*/
-
-  sun_sphere = factory_create_sphere(5, 10, 10);
-  vec3_copy(sun_sphere->position, sun.position);
-  renderer_init_object(sun_sphere);
 
   // point light
   point_light.type = POINT;
@@ -125,8 +80,8 @@ void game_init() {
   point_light.linear = 0.09;
   point_light.quadratic = 0.032;
   point_light.color[0] = 1.0;
-  point_light.color[1] = 1.0;
-  point_light.color[2] = 1.0;
+  point_light.color[1] = 0.0;
+  point_light.color[2] = 0.0;
 
   point_light_2.type = POINT;
   point_light_2.position[0] = 0;
@@ -140,10 +95,23 @@ void game_init() {
   point_light_2.color[1] = 1.0;
   point_light_2.color[2] = 1.0;
 
+  point_light_3.type = POINT;
+  point_light_3.position[0] = 0;
+  point_light_3.position[1] = 1;
+  point_light_3.position[2] = 2;
+  point_light_3.ambient = 0.5;
+  point_light_3.constant = 1.0;
+  point_light_3.linear = 0.09;
+  point_light_3.quadratic = 0.032;
+  point_light_3.color[0] = 0.0;
+  point_light_3.color[1] = 1.0;
+  point_light_3.color[2] = 0.0;
+
   // lights
   lights[0] = &point_light;
   lights[1] = &point_light_2;
-  num_lights = 2;
+  lights[2] = &point_light_3;
+  num_lights = 3;
 
   // skybox
   const char* faces[6];
@@ -163,16 +131,6 @@ void game_init() {
   strcpy(mat_wood.normal_map_path, "assets/textures/Wood_Grain_NRM.png");
   strcpy(mat_wood.specular_map_path, "assets/textures/Wood_Grain_SPEC.png");
   mat_wood.texture_subdivision = 5;
-
-  // grass material
-  material mat_grass;
-  material_init(&mat_grass);
-  strcpy(mat_grass.name, "grass_mat");
-  strcpy(mat_grass.texture_path, "assets/textures/Grass_001_COLOR.jpg");
-  strcpy(mat_grass.normal_map_path, "assets/textures/Grass_001_NORM.jpg");
-  mat_grass.specular = 0.0f;
-  mat_grass.reflectivity = 0;
-  mat_grass.texture_subdivision = 300;
 
   // floor material
   material mat_floor;
@@ -217,90 +175,9 @@ void game_init() {
   renderer_init_object(mutant.o);
   animator_play(mutant.o, "idle", 1);
 
-  // load example item
-  garand = importer_load("garand");
-
-  // garand->scale = 1;
-  garand->position[0] = -5.4;
-  garand->position[1] = 7.6;
-  garand->position[2] = 1;
-
-  // rotate rifle
-  vec3 y_axis = { 0, 1, 0 };
-  vec3 z_axis = { 0, 0, 1 };
-  quat qy;
-  quat_rotate(qy, to_radians(-90), y_axis);
-  quat qz;
-  quat_rotate(qz, to_radians(-80), z_axis);
-  quat_mul(garand->rotation, qz, qy);
-
-  renderer_init_object(garand);
-
   // player as cube (need it only for collisions)
   player = factory_create_box(2, 2, 2);
   physics_compute_aabb(player);
-
-  // load player weapon
-  memcpy(&player_weapon, garand, sizeof(object));
-  player_weapon.scale = 1;
-  player_weapon.parent = NULL;
-  
-  // load enemy
-  enemy.state = IDLE;
-  enemy.o = importer_load("character");
-  enemy.o->scale = 0.01f;
-  enemy.o->receive_shadows = 0;
-  enemy.run_speed = 4;
-  enemy.dir[0] = 0;
-  enemy.dir[1] = 0;
-  enemy.dir[2] = 1;
-  enemy.o->position[0] = 1000;
-  enemy.o->position[1] = 0;
-  enemy.o->position[2] = 1000;
-  renderer_init_object(enemy.o);
-  animator_play(enemy.o, "idle", 1);
-
-  // load tree
-  tree_1 = importer_load("tree");
-  tree_1->receive_shadows = 0;
-  renderer_init_object(tree_1);
-
-  // spawn trees randomly
-  float tree_scale = 16;
-  int max = 30 * 1/tree_scale;
-  int min = -30 * 1/tree_scale;
-  for (int i = 0; i < MAX_TREES; i++) {
-    memcpy(&trees[i], tree_1, sizeof(object));
-    trees[i].scale = tree_scale;
-    trees[i].position[0] = random_range(min, max);
-    trees[i].position[1] = 0;
-    trees[i].position[2] = random_range(min, max);
-    float rot = random_range(0, 180);
-    vec3 y_axis = { 0, 1, 0 };
-    quat_rotate(trees[i].rotation, to_radians(rot), y_axis);
-  }
-
-  // load rock
-  rock = importer_load("rock");
-  vec3_zero(rock->position);
-  rock->receive_shadows = 1;
-  renderer_init_object(rock);
-
-  max = 30;
-  min = -30;
-  for (int i = 0; i < MAX_ROCKS; i++) {
-    memcpy(&rocks[i], rock, sizeof(object));
-    rocks[i].scale = random_range(0.5, 1);
-    rocks[i].position[0] = random_range(min, max);
-    rocks[i].position[1] = random_range(-1, 0.5);
-    rocks[i].position[2] = random_range(min, max);
-    float rot = random_range(0, 180);
-    vec3 y_axis = { 0, 1, 0 };
-    quat_rotate(rocks[i].rotation, to_radians(rot), y_axis);
-    rot = random_range(0, 180);
-    vec3 z_axis = { 0, 0, 1 };
-    quat_rotate(rocks[i].rotation, to_radians(rot), z_axis);
-  }
 
   // game state
   state = MENU;
@@ -341,7 +218,7 @@ void update_character() {
   enum entity_state state = mutant.state;
 
   // attacking
-  if (state == ATTACK) {
+  /* if (state == ATTACK) {
     int key = animator_current_keyframe(mutant.o);
     if (enemy.state != DIE && key > 18 && key < 22) {
       animator_play(enemy.o, "die", 0);
@@ -384,32 +261,11 @@ void update_character() {
       animator_play(mutant.o, "idle", 1);
       mutant.state = IDLE;
     }
-  }
+  } */
 
-}
-
-void update_enemy() {
-  animator_update(enemy.o, delta_time);
-  
-  if (enemy.state != DIE) {
-    vec3 dir;
-    vec3_sub(dir, mutant.o->position, enemy.o->position);
-    vec3_norm(dir, dir);
-
-    vec3 front = { 0.0f, 0.0f, 1.0f };
-    vec3 y_axis = { 0, 1, 0 };
-    float angle = vec3_angle_between(front, dir, y_axis);
-    quat_rotate(enemy.o->rotation, angle, y_axis);
-  }
 }
 
 void update_player() {
-  player_weapon.position[0] = 1;
-  player_weapon.position[1] = -1;
-  player_weapon.position[2] = -2;
-
-  vec3 y_axis = { 0, 1, 0 };
-  quat_rotate(player_weapon.rotation, to_radians(90), y_axis);
 
   // collide with walls
   if (game_camera.pos[0] <= -10) {
@@ -426,7 +282,9 @@ void game_update() {
   input_update();
 
   // lights
-  lights[0]->position[2] = 8 * sinf(current_frame);
+  lights[0]->position[0] = 8 * sinf(current_frame);
+  lights[1]->position[0] = 8 * cosf(current_frame);
+  lights[2]->position[0] = 8 * cosf(current_frame * 4);
   // sun.position[0] = 10 + sinf(current_frame) * 5;
   /* sun.position[0] = game_camera.pos[0];
   sun.position[1] = game_camera.pos[1] + 15;
@@ -435,9 +293,6 @@ void game_update() {
   // character
   update_character();
 
-  // enemy
-  update_enemy();
-  
   // player
   update_player();
 
@@ -448,10 +303,6 @@ void game_update() {
 void game_render() {
   // render entities
   render_list_clear(game_render_list);
-  render_list_clear(screen_render_list);
-
-  // render sun sphere
-  render_list_add(game_render_list, sun_sphere);
 
   // render_list_add(microdrag.game_render_list, sphere);
 
@@ -463,48 +314,28 @@ void game_render() {
   // render character
   render_list_add(game_render_list, mutant.o);
 
-  // render enemy
-  render_list_add(game_render_list, enemy.o);
-
-  // render player weapon
-  //render_list_add(game_render_list, &player_weapon);
-
-  // render nature
-  for (int i = 0; i < MAX_TREES; i++) {
-    render_list_add(game_render_list, &trees[i]);
-  }
-
-  for (int i = 0; i < MAX_ROCKS; i++) {
-    render_list_add(game_render_list, &rocks[i]);
-  }
-  
   // render room
   for (int i = 0; i < DUNGEON_SIZE * DUNGEON_SIZE; i++) {
     // render_list_add(game_render_list, &blocks[i]);
   }
 
-  // screen objects
-  render_list_add(screen_render_list, &player_weapon);
-
   // render
-  renderer_render_objects(game_render_list->objects, game_render_list->size, screen_render_list->objects, screen_render_list->size, lights, num_lights, &game_camera, ui_render, &sky);
+  renderer_render_objects(game_render_list->objects, game_render_list->size, NULL, 0, lights, num_lights, &game_camera, ui_render, &sky);
 }
 
 void game_free() {
   render_list_free(game_render_list);
-  render_list_free(screen_render_list);
 
+  renderer_free_object(ground);
   object_free(ground);
 
   // free dungeon
+  renderer_free_object(block);
   object_free(block);
 
-  object_free(sun_sphere);
-
   ui_free();
-  skybox_free(&sky);
 
-  object_free(garand);
+  skybox_free(&sky);
 
   // cleanup engine modules
   audio_free();

@@ -54,16 +54,6 @@ void input_key_callback(GLFWwindow* window, int key, int scancode, int action, i
   if (action == GLFW_RELEASE && key == GLFW_KEY_O) {
     renderer_recompile_shader(); 
   }
-
-  if (key == GLFW_KEY_B && action == GLFW_PRESS) {
-    garand->position[0] += 0.1f;
-    printf("%f\n", garand->position[0]);
-  }
-
-  if (key == GLFW_KEY_V && action == GLFW_PRESS) {
-    garand->position[0] -= 0.1f;
-    printf("%f\n", garand->position[0]);
-  }
 }
 
 void input_mouse_callback(GLFWwindow* window, double x_pos, double y_pos)

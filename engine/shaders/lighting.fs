@@ -1,5 +1,6 @@
 #version 330 core
 #define MAX_LIGHTS 4
+#define MAX_OMNI_SHADOWS 4
 
 out vec4 FragColor;
 
@@ -26,7 +27,6 @@ struct Light {
 };
 
 uniform Light lights[MAX_LIGHTS];
-
 uniform int lights_nr;
 
 // camera
@@ -38,7 +38,10 @@ uniform float shadow_bias;
 uniform int shadow_pcf_enabled;
 
 // omni shadow map
-uniform samplerCube omni_shadow_map;
+uniform samplerCube omni_shadow_map_0;
+uniform samplerCube omni_shadow_map_1;
+uniform samplerCube omni_shadow_map_2;
+uniform samplerCube omni_shadow_map_3;
 uniform float omni_shadow_far_plane;
 
 // render params
@@ -95,13 +98,13 @@ float shadow_calculation(vec4 frag_pos_light_space, vec3 light_dir, vec3 normal)
   return shadow;
 }
 
-float omni_shadow_calculation(vec3 frag_pos_world_space, vec3 light_pos_world_space) {
-  vec3 fragToLight = frag_pos_world_space - light_pos_world_space;
+float omni_shadow_calculation(samplerCube shadow_cube, vec3 frag_pos_world_space, vec3 light_pos_world_space) {
+  vec3 frag_to_light = frag_pos_world_space - light_pos_world_space;
 
-  float closest_depth = texture(omni_shadow_map, fragToLight).r;
+  float closest_depth = texture(shadow_cube, frag_to_light).r;
   closest_depth *= omni_shadow_far_plane;  
 
-  float current_depth = length(fragToLight);  
+  float current_depth = length(frag_to_light);  
 
   float shadow = 0.0;
   float bias   = 0.15;
@@ -109,7 +112,7 @@ float omni_shadow_calculation(vec3 frag_pos_world_space, vec3 light_pos_world_sp
   float view_distance = length(camera_pos - frag_pos_world_space);
   float disk_radius = (1.0 + (view_distance / omni_shadow_far_plane)) / 25.0;
   for (int i = 0; i < samples; i++) {
-    float closest_depth = texture(omni_shadow_map, fragToLight + sample_offset_directions[i] * disk_radius).r;
+    float closest_depth = texture(shadow_cube, frag_to_light + sample_offset_directions[i] * disk_radius).r;
     closest_depth *= omni_shadow_far_plane;   // undo mapping [0;1]
     if (current_depth - bias > closest_depth) shadow += 1.0;
   }
@@ -140,7 +143,7 @@ vec3 calc_dir_light(Light l, vec3 diffuse, float specular, vec3 normal, float ao
   return l_ambient + (1.0 - shadow) * (l_diffuse + l_specular);
 }
 
-vec3 calc_point_light(Light l, vec3 diffuse, float specular, vec3 normal, float ao, vec3 view_dir, vec3 frag_pos, vec3 frag_pos_world_space, float receive_shadows) {
+vec3 calc_point_light(Light l, int shadow_map_index, vec3 diffuse, float specular, vec3 normal, float ao, vec3 view_dir, vec3 frag_pos, vec3 frag_pos_world_space, float receive_shadows) {
   vec3 light_dir = normalize(l.position - frag_pos);
   
   // ambient
@@ -161,16 +164,31 @@ vec3 calc_point_light(Light l, vec3 diffuse, float specular, vec3 normal, float 
   l_specular *= attenuation;
 
   float shadow = 0.0;
-  if (receive_shadows > 0) {
+  if (shadow_map_index < MAX_OMNI_SHADOWS && receive_shadows > 0) {
     vec3 light_pos_world_space = (view_inv * vec4(l.position, 1.0)).xyz;
-    shadow = omni_shadow_calculation(frag_pos_world_space, light_pos_world_space);
+    
+    // GLSL 3 limitation
+    shadow = omni_shadow_calculation(omni_shadow_map_0, frag_pos_world_space, light_pos_world_space);
+    switch (shadow_map_index) {
+      case 0:
+        shadow = omni_shadow_calculation(omni_shadow_map_0, frag_pos_world_space, light_pos_world_space);
+        break;
+      case 1:
+        shadow = omni_shadow_calculation(omni_shadow_map_1, frag_pos_world_space, light_pos_world_space);
+        break;
+      case 2:
+        shadow = omni_shadow_calculation(omni_shadow_map_2, frag_pos_world_space, light_pos_world_space);
+        break;
+      case 3:
+        shadow = omni_shadow_calculation(omni_shadow_map_3, frag_pos_world_space, light_pos_world_space);
+        break;
+    }
   }
 
   return l_ambient + (1.0 - shadow) * (l_diffuse + l_specular);
 }
 
-void main()
-{             
+void main() {             
   // retrieve data from gbuffer
   vec3 frag_pos = texture(g_position, TexCoords).rgb; // FragPos in view space!
   vec3 normal = texture(g_normal, TexCoords).rgb;
@@ -200,15 +218,17 @@ void main()
   vec3 lighting  = vec3(0);
   vec3 view_dir  = normalize(-frag_pos); // viewpos is (0.0.0)
 
-  for (int i = 0; i < min(lights_nr, MAX_LIGHTS); i++) {
+  int omni_light_index = 0;
 
-    if (lights[i].type == 0) { // directional light
-      vec4 frag_pos_light_space = lights[i].light_space_matrix * frag_pos_world_space;
-      lighting += calc_dir_light(lights[i], diffuse, specular, normal, ao, view_dir, frag_pos_light_space, receive_shadows);
-    } else if (lights[i].type == 1) { // point light
-      lighting += calc_point_light(lights[i], diffuse, specular, normal, ao, view_dir, frag_pos, frag_pos_world_space.xyz, receive_shadows);
+  for (int l = 0; l < min(MAX_LIGHTS, lights_nr); l++) {
+    Light light = lights[l];
+
+    if (light.type == 0) { // directional light
+      vec4 frag_pos_light_space = light.light_space_matrix * frag_pos_world_space;
+      lighting += calc_dir_light(light, diffuse, specular, normal, ao, view_dir, frag_pos_light_space, receive_shadows);
+    } else if (light.type == 1) { // point light
+      lighting += calc_point_light(light, omni_light_index++, diffuse, specular, normal, ao, view_dir, frag_pos, frag_pos_world_space.xyz, receive_shadows);
     }
-
   }
 
   FragColor = vec4(lighting, 1.0);

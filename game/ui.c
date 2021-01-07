@@ -113,10 +113,6 @@ void ui_render() {
     snprintf(camera_pos, 128, "camera: %f %f %f | %f %f %f\n", cam->pos[0], cam->pos[1], cam->pos[2], cam->front[0], cam->front[1], cam->front[2]);
     nk_label(ctx, camera_pos, NK_TEXT_LEFT);
 
-    char item_pos[256];
-    snprintf(item_pos, 256, "garand: %f %f %f\n", garand->position[0], garand->position[1], garand->position[2]);
-    nk_label(ctx, item_pos, NK_TEXT_LEFT);
-
     char ui_fps[256];
     snprintf(ui_fps, 256, "fps: %f\n", fps);
     nk_label(ctx, ui_fps, NK_TEXT_LEFT);

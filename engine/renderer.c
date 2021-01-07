@@ -7,6 +7,8 @@
 #define SSAO_MAX_KERNEL_SIZE 64
 #define SSAO_MAX_NOISE_SIZE 16
 
+#define MAX_OMNI_SHADOWS 4
+
 GLFWwindow* window;
 
 GLuint renderer_geometry_shader;
@@ -58,8 +60,8 @@ float renderer_shadow_far;
 float renderer_shadow_size;
 
 // omni-directional shadows
-GLuint renderer_depth_cubemap;
-GLuint renderer_depth_cubemap_fbo;
+GLuint renderer_depth_cubemaps[MAX_OMNI_SHADOWS];
+GLuint renderer_depth_cubemap_fbos[MAX_OMNI_SHADOWS];
 
 void set_opengl_state() {
   glEnable(GL_DEPTH_TEST);
@@ -255,27 +257,29 @@ void init_post(int width, int height) {
 }
 
 void init_omni_shadows() {
-  glGenFramebuffers(1, &renderer_depth_cubemap_fbo);
-  glGenTextures(1, &renderer_depth_cubemap);
+  for (int l = 0; l < MAX_OMNI_SHADOWS; l++) {
+    glGenFramebuffers(1, &renderer_depth_cubemap_fbos[l]);
+    glGenTextures(1, &renderer_depth_cubemaps[l]);
 
-  glBindTexture(GL_TEXTURE_CUBE_MAP, renderer_depth_cubemap);
-  for (unsigned int i = 0; i < 6; ++i) {
-    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, 
-        SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL); 
+    glBindTexture(GL_TEXTURE_CUBE_MAP, renderer_depth_cubemaps[l]);
+    for (unsigned int i = 0; i < 6; ++i) {
+      glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, 
+          SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL); 
+    }
+
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);  
+
+    // attach depth texture as FBO's depth buffer
+    glBindFramebuffer(GL_FRAMEBUFFER, renderer_depth_cubemap_fbos[l]);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, renderer_depth_cubemaps[l], 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
   }
-
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);  
-
-  // attach depth texture as FBO's depth buffer
-  glBindFramebuffer(GL_FRAMEBUFFER, renderer_depth_cubemap_fbo);
-  glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, renderer_depth_cubemap, 0);
-  glDrawBuffer(GL_NONE);
-  glReadBuffer(GL_NONE);
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow** out_window) {
@@ -320,8 +324,6 @@ int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow
   renderer_shadow_pcf_enabled = 1;
 
   // omni-directional shadow mapping
-  renderer_depth_cubemap = 0;
-  renderer_depth_cubemap_fbo = 0;
   init_omni_shadows();
 
   // fxaa
@@ -823,8 +825,14 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
   float omni_shadows_near_plane = 1.0f;
   float omni_shadows_far_plane = 25.0f;
 
+  int omni_light_count = 0;
   for (int l = 0; l < lights_length; l++) {
     if (lights[l]->type != POINT) continue;
+
+    if (omni_light_count >= MAX_OMNI_SHADOWS) break;
+
+    glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+    glBindFramebuffer(GL_FRAMEBUFFER, renderer_depth_cubemap_fbos[omni_light_count]);
 
     glClearColor(183.0f / 255.0f, 220.0f / 255.0f, 244.0f / 255.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -837,9 +845,7 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
     fill_omnishadows_transforms(omni_shadows_transforms, &omni_shadows_p, lights[l]->position);
 
     // render scene to cubemap
-    glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-    glBindFramebuffer(GL_FRAMEBUFFER, renderer_depth_cubemap_fbo);
-    glClear(GL_DEPTH_BUFFER_BIT);
+    // glClear(GL_DEPTH_BUFFER_BIT);
     
     glUseProgram(renderer_omni_shadow_shader);
     for (int i = 0; i < 6; i++) {
@@ -853,6 +859,8 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
     render_objects(objects, objects_length, renderer_omni_shadow_shader);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    omni_light_count++;
   }
 
   /*-------------------------------------------------------------------------*/
@@ -957,12 +965,6 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
   GLint uniform_camera_pos = glGetUniformLocation(renderer_lighting_shader, "camera_pos");
   glUniform3fv(uniform_camera_pos, 1, (const GLfloat*) camera->pos);
 
-  // lights
-  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "lights_nr"), lights_length);
-  for (int i = 0; i < lights_length; i++) {
-    pass_light_uniform(i, lights[i], v, light_space_matrices[i], renderer_lighting_shader);
-  }
-
   // shadow map to shader
   glUniform1f(glGetUniformLocation(renderer_lighting_shader, "shadow_bias"), renderer_shadow_bias);
   glUniform1i(glGetUniformLocation(renderer_lighting_shader, "shadow_pcf_enabled"), renderer_shadow_pcf_enabled);
@@ -977,18 +979,13 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
   glActiveTexture(GL_TEXTURE4);
   glBindTexture(GL_TEXTURE_2D, renderer_depth_map);
 
-  // pass omni-shadow depth map
-  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "omni_shadow_map"), 5);
-  glActiveTexture(GL_TEXTURE5);
-  glBindTexture(GL_TEXTURE_CUBE_MAP, renderer_depth_cubemap);
-
   // pass omni-shadow far plane
   glUniform1f(glGetUniformLocation(renderer_lighting_shader, "omni_shadow_far_plane"), omni_shadows_far_plane);
 
   // skybox to shader
   if (sky) {
-    glUniform1i(glGetUniformLocation(renderer_lighting_shader, "skybox"), 6);
-    glActiveTexture(GL_TEXTURE6);
+    glUniform1i(glGetUniformLocation(renderer_lighting_shader, "skybox"), 5);
+    glActiveTexture(GL_TEXTURE5);
     glBindTexture(GL_TEXTURE_CUBE_MAP, sky->texture_id);
   }
 
@@ -996,13 +993,28 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
   glUniform1f(glGetUniformLocation(renderer_lighting_shader, "time"), (float)glfwGetTime());
 
   // pass ssao texture to shader
-  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "ssao"), 7);
-  glActiveTexture(GL_TEXTURE7);
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "ssao"), 6);
+  glActiveTexture(GL_TEXTURE6);
   glBindTexture(GL_TEXTURE_2D, renderer_ssao_blur);
 
   // ssao uniforms
   glUniform1i(glGetUniformLocation(renderer_lighting_shader, "ssao_enabled"), renderer_ssao_enabled);
   glUniform1i(glGetUniformLocation(renderer_lighting_shader, "ssao_debug"), renderer_ssao_debug_on);
+
+  // pass omni-shadow depth map
+  for (int l = 0; l < MAX_OMNI_SHADOWS; l++) {
+    char uniform_shadow_map[256];
+    sprintf(uniform_shadow_map, "omni_shadow_map_%d", l);
+    glUniform1i(glGetUniformLocation(renderer_lighting_shader, uniform_shadow_map), 7 + l);
+    glActiveTexture(GL_TEXTURE7 + l);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, renderer_depth_cubemaps[l]);
+  }
+
+  // lights
+  glUniform1i(glGetUniformLocation(renderer_lighting_shader, "lights_nr"), lights_length);
+  for (int i = 0; i < lights_length; i++) {
+    pass_light_uniform(i, lights[i], v, light_space_matrices[i], renderer_lighting_shader);
+  }
 
   render_quad();
   /*-------------------------------------------------------------------------*/
