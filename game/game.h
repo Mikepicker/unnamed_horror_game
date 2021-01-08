@@ -17,12 +17,6 @@
 
 enum game_state { MENU, GAME };
 
-// cubes
-typedef struct {
-  object* o;
-  int alive;
-} cube;
-
 // entity
 enum entity_state { IDLE, MOVE, ATTACK, DIE };
 typedef struct {

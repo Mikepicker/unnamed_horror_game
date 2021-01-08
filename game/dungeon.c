@@ -1,130 +1,131 @@
 #include "dungeon.h"
 #include "bmp.h"
 
-#define MAX_ROOMS 12
-#define MAX_ROOM_ATTEMPTS 50
-#define ROOM_OPTIONS 4
+#define DUNGEON_BLOCK_SIZE 4
+#define MAX_ROOMS 1
+#define MIN_ROOM_SIZE 4
+#define MAX_ROOM_SIZE 16
 
-typedef struct {
-  int x;
-  int y;
-  int w;
-  int h;
-} room;
+room dungeon[MAX_ROOMS];
 
-dungeon_block dungeon[DUNGEON_SIZE][DUNGEON_SIZE];
+object* block;
+material mat_stone;
 
-room room_options[ROOM_OPTIONS];
-room rooms_placed[MAX_ROOMS];
-int last_placed = 0;
+object blocks[(MAX_ROOM_SIZE + MAX_ROOM_SIZE) * 2];
 
-static void print_dungeon() {
-  unsigned char image[DUNGEON_SIZE][DUNGEON_SIZE][BYTES_PER_PIXEL];
-  char* imageFileName = (char*) "dungeon.bmp";
+object* ground;
+object* roof;
 
-  for (int y = 0; y < DUNGEON_SIZE; y++) {
-    for (int x = 0; x < DUNGEON_SIZE; x++) {
-      switch(dungeon[y][x]) {
-        case EMPTY:
-          image[y][x][2] = 0; image[y][x][1] = 0; image[y][x][0] = 0;
-          break;
-        case ROOM:
-          image[y][x][2] = 0; image[y][x][1] = 255; image[y][x][0] = 0;
-          break;
-        case NEXT_TO_ROOM:
-          image[y][x][2] = 255; image[y][x][1] = 0; image[y][x][0] = 0;
-          break;
-      }
-    }
+// TODO: for now, render first room
+void dungeon_render(render_list* rl) {
+   
+  // render ground & roof
+  render_list_add(rl, ground);
+  render_list_add(rl, roof);
+
+  // render walls
+  int block_count = 0;
+
+  // north walls
+  for (int i = 0; i < dungeon[0].w; i++) {
+    object* b = &blocks[block_count++];
+    b->position[0] = i * DUNGEON_BLOCK_SIZE;
+    b->position[2] = 0;
+    render_list_add(rl, b); 
   }
 
-  generateBitmapImage((unsigned char*) image, DUNGEON_SIZE, DUNGEON_SIZE, imageFileName);
-}
-
-static int rooms_collide(room* r1, room* r2) {
-  // increase r2 size to avoid placing rooms next to each other
-  return r1->x < r2->x + r2->w + 1 &&
-    r1->x + r1->w > r2->x - 1 &&
-    r1->y < r2->y + r2->h + 1 &&
-    r1->y + r1->h > r2->y - 1;
-}
-
-static int can_place_room(room* r) {
-  for (int j = 0; j < last_placed; j++) {
-    if (rooms_collide(r, &rooms_placed[j])) {
-      return 0;
-    }
+  // west walls
+  for (int i = 0; i < dungeon[0].h; i++) {
+    object* b = &blocks[block_count++];
+    b->position[0] = (dungeon[0].w - 1) * DUNGEON_BLOCK_SIZE;
+    b->position[2] = i * DUNGEON_BLOCK_SIZE;
+    render_list_add(rl, b); 
   }
 
-  return 1;
-}
-
-static void generate_room() {
-  room* r = &room_options[(int)random_range(0, ROOM_OPTIONS)];
-  for (int i = 0; i < MAX_ROOM_ATTEMPTS; i++) {
-    float x = random_range(4, DUNGEON_SIZE - r->w + 1);
-    float y = random_range(4, DUNGEON_SIZE - r->h + 1);
-
-    r->x = x;
-    r->y = y;
-    
-    if (can_place_room(r)) {
-      memcpy(&rooms_placed[last_placed++], r, sizeof(room));
-
-      // set next_to_room blocks
-      for (int y = clamp(r->y - 1, 0, DUNGEON_SIZE); y < clamp(r->y + r->h + 1, 0, DUNGEON_SIZE); y++) {
-        for (int x = clamp(r->x - 1, 0, DUNGEON_SIZE); x < clamp(r->x + r->w + 1, 0, DUNGEON_SIZE); x++) {
-          dungeon[y][x] = NEXT_TO_ROOM;
-        }
-      }
-
-      // set room blocks
-      for (int y = r->y; y < r->y + r->h; y++) {
-        for (int x = r->x; x < r->x + r->w; x++) {
-          dungeon[y][x] = ROOM;
-        }
-      }
-
-      return;
-    }
+  // south walls
+  for (int i = 0; i < dungeon[0].w; i++) {
+    object* b = &blocks[block_count++];
+    b->position[0] = i * DUNGEON_BLOCK_SIZE;
+    b->position[2] = (dungeon[0].h - 1) * DUNGEON_BLOCK_SIZE;
+    render_list_add(rl, b); 
   }
 
-  printf("[dungeon] generate room error: no free space found!\n");
-}
-
-static void generate_rooms() {
-  for (int i = 0; i < MAX_ROOMS; i++) {
-    generate_room();
-  }
-}
-
-static void init_dungeon() {
-  // pre-defined rooms
-  room_options[0].w = 4;
-  room_options[0].h = 4;
-
-  room_options[1].w = 8;
-  room_options[1].h = 4;
-
-  room_options[2].w = 4;
-  room_options[2].h = 8;
-
-  room_options[3].w = 6;
-  room_options[3].h = 3;
-
-  // init empty blocks
-  for (int y = 0; y < DUNGEON_SIZE; y++) {
-    for (int x = 0; x < DUNGEON_SIZE; x++) {
-      dungeon[y][x] = EMPTY;
-    }
+  // east walls
+  for (int i = 0; i < dungeon[0].h; i++) {
+    object* b = &blocks[block_count++];
+    b->position[0] = 0;
+    b->position[2] = i * DUNGEON_BLOCK_SIZE;
+    render_list_add(rl, b); 
   }
 }
 
 void dungeon_generate() {
-  // 1. init dungeon
-  init_dungeon();
+  // init sample block
+  material_init(&mat_stone);
+  strcpy(mat_stone.name, "mat_stone");
+  strcpy(mat_stone.texture_path, "assets/textures/Stone_Wall_013_Albedo.jpg");
+  strcpy(mat_stone.normal_map_path, "assets/textures/Stone_Wall_013_Normal.jpg");
+  strcpy(mat_stone.specular_map_path, "assets/textures/Stone_Wall_013_Roughness.jpg");
+  mat_stone.texture_subdivision = 1;
 
-  // 2. place some rooms
-  generate_rooms();
-  print_dungeon();
+  block = factory_create_box(DUNGEON_BLOCK_SIZE, DUNGEON_BLOCK_SIZE, DUNGEON_BLOCK_SIZE);
+  block->receive_shadows = 1;
+  block->meshes[0].mat = mat_stone;
+  block->position[1] = (float)DUNGEON_BLOCK_SIZE / 2;
+  renderer_init_object(block);
+
+  // pre-allocate blocks
+  for (int i = 0; i < (MAX_ROOM_SIZE + MAX_ROOM_SIZE) * 2; i++) {
+    memcpy(&blocks[i], block, sizeof(object));
+  }
+
+  // generate rooms
+  for (int i = 0; i < MAX_ROOMS; i++) {
+    dungeon[i].w = random_range(MIN_ROOM_SIZE, MAX_ROOM_SIZE);
+    dungeon[i].h = random_range(MIN_ROOM_SIZE, MAX_ROOM_SIZE);
+  }
+
+  // ground & floor
+  material mat_floor;
+  material_init(&mat_floor);
+  strcpy(mat_floor.name, "floor_mat");
+  strcpy(mat_floor.texture_path, "assets/textures/floor/PavingStones037_1K_Color.png");
+  strcpy(mat_floor.normal_map_path, "assets/textures/floor/PavingStones037_1K_Normal.png");
+  strcpy(mat_floor.specular_map_path, "assets/textures/floor/PavingStones037_1K_Roughness.png");
+  mat_floor.specular = 0.0f;
+  mat_floor.reflectivity = 0;
+  mat_floor.texture_subdivision = 300;
+
+  ground = factory_create_plane(1000, 1000);
+  ground->position[1] = -0.001;
+  ground->meshes[0].mat = mat_floor;
+  ground->receive_shadows = 1;
+  object_set_center(ground);
+  mesh_compute_tangent(&ground->meshes[0]);
+  renderer_init_object(ground);
+
+  roof = factory_create_plane(1000, 1000);
+  roof->position[1] = DUNGEON_BLOCK_SIZE;
+  roof->meshes[0].mat = mat_floor;
+  roof->receive_shadows = 1;
+  object_set_center(roof);
+  mesh_compute_tangent(&roof->meshes[0]);
+  renderer_init_object(roof);
+
+  // rotate roof
+  vec3 axis_x = { 1, 0, 0 };
+  quat_rotate(roof->rotation, to_radians(180), axis_x);
+}
+
+void dungeon_free() {
+  renderer_free_object(ground);
+  object_free(ground);
+
+  renderer_free_object(roof);
+  object_free(roof);
+
+  renderer_free_object(block);
+  for (int i = 0; i < MAX_ROOMS; i++) {
+    object_free(&blocks[i]);
+  }
 }

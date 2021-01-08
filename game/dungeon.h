@@ -3,12 +3,13 @@
 
 #include "../engine/seaengine.h"
 
-#define DUNGEON_SIZE 30
-
-typedef enum { EMPTY, ROOM, NEXT_TO_ROOM } dungeon_block;
-
-extern dungeon_block dungeon[DUNGEON_SIZE][DUNGEON_SIZE];
+typedef struct {
+  int w;
+  int h;
+} room;
 
 void dungeon_generate();
+void dungeon_render(render_list* rl);
+void dungeon_free();
 
 #endif
