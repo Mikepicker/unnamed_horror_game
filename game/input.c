@@ -135,13 +135,13 @@ void input_update() {
   if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
     vec3 vec3_scaled;
     vec3_scale(vec3_scaled, game_camera.front, camera_delta);
-    // vec3_scaled[1] = 0;
+    vec3_scaled[1] = 0;
     vec3_add(game_camera.pos, game_camera.pos, vec3_scaled);
   }
   if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
     vec3 vec3_temp;
     vec3_scale(vec3_temp, game_camera.front, camera_delta);
-    // vec3_temp[1] = 0;
+    vec3_temp[1] = 0;
     vec3_sub(game_camera.pos, game_camera.pos, vec3_temp);
   }
   if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {

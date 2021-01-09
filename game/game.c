@@ -7,17 +7,10 @@ float delta_time;
 float last_frame;
 float fps;
 
-// sun
-
-light* lights[MAX_LIGHTS];
+light* lights[NUM_PORTALS];
 int num_lights;
 // ALuint sound_car;
 enum game_state state;
-
-// point light
-light point_light;
-light point_light_2;
-light point_light_3;
 
 // skybox
 skybox sky;
@@ -58,49 +51,6 @@ void game_init() {
   // init ui
   ui_init();
 
-  // point light
-  point_light.type = POINT;
-  point_light.position[0] = 0;
-  point_light.position[1] = 1;
-  point_light.position[2] = -2;
-  point_light.ambient = 0.5;
-  point_light.constant = 1.0;
-  point_light.linear = 0.09;
-  point_light.quadratic = 0.032;
-  point_light.color[0] = 1.0;
-  point_light.color[1] = 1.0;
-  point_light.color[2] = 1.0;
-
-  point_light_2.type = POINT;
-  point_light_2.position[0] = 0;
-  point_light_2.position[1] = 1;
-  point_light_2.position[2] = 2;
-  point_light_2.ambient = 0.5;
-  point_light_2.constant = 1.0;
-  point_light_2.linear = 0.09;
-  point_light_2.quadratic = 0.032;
-  point_light_2.color[0] = 0.0;
-  point_light_2.color[1] = 1.0;
-  point_light_2.color[2] = 1.0;
-
-  point_light_3.type = POINT;
-  point_light_3.position[0] = 0;
-  point_light_3.position[1] = 1;
-  point_light_3.position[2] = 2;
-  point_light_3.ambient = 0.5;
-  point_light_3.constant = 1.0;
-  point_light_3.linear = 0.09;
-  point_light_3.quadratic = 0.032;
-  point_light_3.color[0] = 0.0;
-  point_light_3.color[1] = 1.0;
-  point_light_3.color[2] = 0.0;
-
-  // lights
-  lights[0] = &point_light;
-  lights[1] = &point_light_2;
-  lights[2] = &point_light_3;
-  num_lights = 3;
-
   // skybox
   const char* faces[6];
   faces[0] = "assets/skybox/skybox_rt.bmp";
@@ -134,16 +84,15 @@ void game_init() {
   // load character
   mutant.state = MOVE;
   mutant.o = importer_load("mutant");
-  mutant.o->scale = 0.01f;
+  mutant.o->scale = 0.015f;
   mutant.o->receive_shadows = 0;
   physics_compute_aabb(mutant.o);
-  mutant.run_speed = 1;
+  mutant.run_speed = 4;
   mutant.dir[0] = 0;
   mutant.dir[1] = 0;
   mutant.dir[2] = 1;
   vec3_zero(mutant.o->position);
   vec3_zero(target_pos);
-  target_pos[0] = 30;
   renderer_init_object(mutant.o);
   animator_play(mutant.o, "walk", 1);
 
@@ -191,11 +140,11 @@ void update_mutant() {
   } */
 
   // move character to target
-  vec3 dir, dist;
-  vec3_sub(dist, target_pos, mutant.o->position);
-  printf("LEN %f\n", vec3_len(dist));
-  debug_print_vec3(game_camera.pos);
-  debug_print_vec3(mutant.o->position);
+  vec3 dir, dist, scaled_pos;
+  vec3_copy(scaled_pos, game_camera.pos);
+  vec3_scale(scaled_pos, scaled_pos, 1 / mutant.o->scale);
+  vec3_sub(dist, scaled_pos, mutant.o->position);
+
   if (vec3_len(dist) > 2) {
     if (strcmp(mutant.o->current_anim->name, "run") != 0)
       animator_play(mutant.o, "run", 1);
@@ -203,6 +152,7 @@ void update_mutant() {
     // position
     vec3_norm(dir, dist);
     vec3_scale(dir, dir, mutant.run_speed);
+    dir[1] = 0;
     vec3_add(mutant.o->position, mutant.o->position, dir);
 
     // rotation
@@ -210,10 +160,10 @@ void update_mutant() {
     vec3 y_axis = { 0, 1, 0 };
     float angle = vec3_angle_between(front, dir, y_axis);
     quat_rotate(mutant.o->rotation, angle, y_axis);
-  }/* else {
+  } else {
     animator_play(mutant.o, "idle", 1);
     mutant.state = IDLE;
-  } */
+  }
 
 }
 
@@ -232,15 +182,6 @@ void game_update() {
   fps = 1 / delta_time;
 
   input_update();
-
-  // lights
-  vec3_copy(point_light.position, player->position);
-  lights[1]->position[0] = 8 * cosf(current_frame);
-  lights[2]->position[0] = 8 * cosf(current_frame * 4);
-  // sun.position[0] = 10 + sinf(current_frame) * 5;
-  /* sun.position[0] = game_camera.pos[0];
-  sun.position[1] = game_camera.pos[1] + 15;
-  sun.position[2] = game_camera.pos[2] - 20; */
 
   // mutant
   update_mutant();
@@ -265,10 +206,10 @@ void game_render() {
   render_list_add(game_render_list, mutant.o);
 
   // render room
-  // dungeon_render(game_render_list);
+  dungeon_render(game_render_list, lights);
 
   // render
-  renderer_render_objects(game_render_list->objects, game_render_list->size, NULL, 0, lights, num_lights, &game_camera, ui_render, &sky);
+  renderer_render_objects(game_render_list->objects, game_render_list->size, NULL, 0, lights, NUM_PORTALS, &game_camera, ui_render, &sky);
 }
 
 void game_free() {
