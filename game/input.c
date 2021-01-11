@@ -41,7 +41,6 @@ void input_key_callback(GLFWwindow* window, int key, int scancode, int action, i
   if (key == GLFW_KEY_L && action == GLFW_PRESS)
     renderer_fxaa_enabled = renderer_fxaa_enabled == 0 ? 1 : 0;
   
-  
   // capture mouse
   if (action == GLFW_RELEASE) {
     if (key == GLFW_KEY_C) {

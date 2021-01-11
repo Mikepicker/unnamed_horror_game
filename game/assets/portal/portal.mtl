@@ -1,0 +1,11 @@
+# Created with Anim8or 0.98
+# Object "DragonJawPortal":
+
+newmtl DragonJawPortal_Material
+Ka 0.878 0.878 0.878
+Kd 0.878 0.878 0.878
+Ks 1 1 1
+Ns 752.6
+map_Kd DragonJawPortal_Diffuse.png
+map_Ks DragonJawPortal_Spec.png
+map_Kn DragonJawPortal_Normal.png

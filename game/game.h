@@ -32,7 +32,6 @@ extern camera game_camera;
 extern vec3 target_pos;
 extern light* lights[];
 extern entity character;
-extern object* garand;
 
 void game_init();
 void game_start();

@@ -9,6 +9,7 @@ typedef struct {
   int x;
   int y;
   light l;
+  object* m;
 } portal;
 
 typedef struct {

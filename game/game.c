@@ -7,10 +7,12 @@ float delta_time;
 float last_frame;
 float fps;
 
-light* lights[NUM_PORTALS];
+light* lights[NUM_PORTALS + 1];
 int num_lights;
 // ALuint sound_car;
 enum game_state state;
+
+light sun;
 
 // skybox
 skybox sky;
@@ -32,9 +34,25 @@ void game_init() {
   game_camera.up[2] = 0.0f;
   game_camera.pos[0] = 0.0f;
   game_camera.pos[1] = 2.0f;
-  game_camera.pos[2] = 9.0f;
+  game_camera.pos[2] = 0.0f;
   game_camera.speed = 10.0f;
   
+  // sunlight
+  lights[NUM_PORTALS] = &sun;
+
+  // sun
+  sun.type = DIRECTIONAL;
+  sun.position[0] = 0;
+  sun.position[1] = 15;
+  sun.position[2] = -20;
+  sun.dir[0] = 0;
+  sun.dir[1] = 0;
+  sun.dir[2] = 0;
+  sun.color[0] = 1;
+  sun.color[1] = 1;
+  sun.color[2] = 1;
+  sun.ambient = 0.0f;
+
   // game loop
   delta_time = 0.0f;
   last_frame = 0.0f;
@@ -209,7 +227,7 @@ void game_render() {
   dungeon_render(game_render_list, lights);
 
   // render
-  renderer_render_objects(game_render_list->objects, game_render_list->size, NULL, 0, lights, NUM_PORTALS, &game_camera, ui_render, &sky);
+  renderer_render_objects(game_render_list->objects, game_render_list->size, NULL, 0, lights, NUM_PORTALS + 1, &game_camera, ui_render, &sky);
 }
 
 void game_free() {

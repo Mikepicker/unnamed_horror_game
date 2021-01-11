@@ -231,5 +231,11 @@ void main() {
     }
   }
 
-  FragColor = vec4(lighting, 1.0);
+  // Fog
+  float fog_coord = abs(frag_pos.z);
+  float density = 0.05;
+  float fog = 1.0 - clamp(exp(-pow(density * fog_coord, 2)), 0.0, 1.0);
+
+  vec3 fog_color = vec3(0.08, 0.08, 0.08);
+  FragColor = mix(vec4(lighting, 1.0), vec4(fog_color, 1.0), fog);
 }

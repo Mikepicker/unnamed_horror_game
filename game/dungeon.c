@@ -15,6 +15,7 @@ object blocks[(MAX_ROOM_SIZE + MAX_ROOM_SIZE) * 2];
 
 object* ground;
 object* roof;
+object* portal_model;
 
 portal portals[NUM_PORTALS]; // 2 portals per room
 
@@ -63,6 +64,7 @@ void dungeon_render(render_list* rl, light** lights) {
   // render portals
   for (int i = 0; i < NUM_PORTALS; i++) {
     lights[i] = &(dungeon[0].portals[i].l);
+    render_list_add(rl, dungeon[0].portals[i].m);
   }
 }
 
@@ -83,6 +85,23 @@ static void generate_portals(room* r) {
     p->l.color[0] = 0.0;
     p->l.color[1] = 0.0;
     p->l.color[2] = 1.0;
+
+
+    // portal model
+    p->m = importer_load("portal");
+    quat_identity(p->m->rotation);
+    p->m->scale = 0.02f;
+    object_set_center(p->m);
+    renderer_init_object(p->m);
+    p->m->receive_shadows = 1;
+
+    p->m->position[0] = p->x / p->m->scale;
+    p->m->position[1] = 72;
+    p->m->position[2] = p->y / p->m->scale;
+
+    // random rotation
+    vec3 y_axis = { 0, 1, 0 };
+    quat_rotate(p->m->rotation, to_radians(random_range(0, 360)), y_axis);
   }
 }
 
@@ -167,4 +186,9 @@ void dungeon_free() {
   for (int i = 0; i < MAX_ROOMS; i++) {
     object_free(&blocks[i]);
   }
+
+  /* for (int i = 0; i < NUM_PORTALS; i++) {
+    renderer_free_object(portals[i].m);
+    object_free(portals[i].m);
+  } */
 }
