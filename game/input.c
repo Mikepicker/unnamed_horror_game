@@ -1,6 +1,7 @@
 #include "input.h"
 
 input game_input;
+float camera_anim_time;
 
 void input_init() {
   game_input.yaw = -90.0f;
@@ -11,6 +12,8 @@ void input_init() {
   game_input.capture_cursor = 1;
   game_input.first_mouse = 1;
   game_input.sensitivity = 0.01f;
+
+  camera_anim_time = 0.0f;
 
   glfwSetKeyCallback(window, input_key_callback);
   glfwSetCursorPosCallback(window, input_mouse_callback);
@@ -130,31 +133,49 @@ void input_joystick_callback(int joy, int event) {
 void input_update() {
 
   // fps camera
+  int moving = 0;
   float camera_delta = game_camera.speed * delta_time;
   if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
     vec3 vec3_scaled;
     vec3_scale(vec3_scaled, game_camera.front, camera_delta);
     vec3_scaled[1] = 0;
     vec3_add(game_camera.pos, game_camera.pos, vec3_scaled);
+    moving = 1;
   }
+
   if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
     vec3 vec3_temp;
     vec3_scale(vec3_temp, game_camera.front, camera_delta);
     vec3_temp[1] = 0;
     vec3_sub(game_camera.pos, game_camera.pos, vec3_temp);
+    moving = 1;
   }
+
   if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
     vec3 vec3_crossed, vec3_scaled, vec3_normalized;
     vec3_mul_cross(vec3_crossed, game_camera.front, game_camera.up);
     vec3_norm(vec3_normalized, vec3_crossed);
     vec3_scale(vec3_scaled, vec3_normalized, camera_delta);
     vec3_sub(game_camera.pos, game_camera.pos, vec3_scaled);
+    moving = 1;
   }
+
   if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
     vec3 vec3_crossed, vec3_scaled, vec3_normalized;
     vec3_mul_cross(vec3_crossed, game_camera.front, game_camera.up);
     vec3_norm(vec3_normalized, vec3_crossed);
     vec3_scale(vec3_scaled, vec3_normalized, camera_delta);
     vec3_add(game_camera.pos, game_camera.pos, vec3_scaled);
+    moving = 1;
+  }
+
+  // camera walk
+  if (moving) {
+    camera_anim_time += delta_time;
+    game_camera.pos[1] = 2 + sinf(camera_anim_time * 8) / 10;
+  }
+  else {
+    game_camera.pos[1] = 2;
+    camera_anim_time = 0;
   }
 }

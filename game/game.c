@@ -32,9 +32,9 @@ void game_init() {
   game_camera.up[0] = 0.0f;
   game_camera.up[1] = 1.0f;
   game_camera.up[2] = 0.0f;
-  game_camera.pos[0] = 0.0f;
+  game_camera.pos[0] = 4.0f;
   game_camera.pos[1] = 2.0f;
-  game_camera.pos[2] = 0.0f;
+  game_camera.pos[2] = 4.0f;
   game_camera.speed = 10.0f;
   
   // sunlight
