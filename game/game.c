@@ -9,6 +9,9 @@ float fps;
 
 light* lights[NUM_PORTALS + 1];
 int num_lights;
+
+particle_generator* pgs[NUM_PORTALS];
+
 // ALuint sound_car;
 enum game_state state;
 
@@ -209,6 +212,9 @@ void game_update() {
 
   // audio
   audio_move_listener(game_camera.pos);
+
+  // dungeon
+  dungeon_update(delta_time, &game_camera);
 }
 
 void game_render() {
@@ -221,13 +227,13 @@ void game_render() {
   // render_list_add(game_render_list, rock);
 
   // render character
-  render_list_add(game_render_list, mutant.o);
+  // render_list_add(game_render_list, mutant.o);
 
   // render room
-  dungeon_render(game_render_list, lights);
+  dungeon_render(game_render_list, lights, pgs);
 
   // render
-  renderer_render_objects(game_render_list->objects, game_render_list->size, NULL, 0, lights, NUM_PORTALS + 1, &game_camera, ui_render, &sky);
+  renderer_render_objects(game_render_list->objects, game_render_list->size, NULL, 0, lights, NUM_PORTALS + 1, &game_camera, ui_render, &sky, pgs, NUM_PORTALS);
 }
 
 void game_free() {

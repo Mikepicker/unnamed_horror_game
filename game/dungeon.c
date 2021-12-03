@@ -19,8 +19,15 @@ object* portal_model;
 
 portal portals[NUM_PORTALS]; // 2 portals per room
 
+void dungeon_update(float dt, camera* cam) {
+  // particles
+  for (int i = 0; i < NUM_PORTALS; i++) {
+    particle_generator_update(dungeon[0].portals[i].pg, dt, 2, cam);
+  }
+}
+
 // TODO: for now, render first room
-void dungeon_render(render_list* rl, light** lights) {
+void dungeon_render(render_list* rl, light** lights, particle_generator** pgs) {
    
   // render ground & roof
   render_list_add(rl, ground);
@@ -65,6 +72,7 @@ void dungeon_render(render_list* rl, light** lights) {
   for (int i = 0; i < NUM_PORTALS; i++) {
     lights[i] = &(dungeon[0].portals[i].l);
     render_list_add(rl, dungeon[0].portals[i].m);
+    pgs[i] = dungeon[0].portals[i].pg;
   }
 }
 
@@ -86,26 +94,46 @@ static void generate_portals(room* r) {
     p->l.color[1] = 0.0;
     p->l.color[2] = 1.0;
 
-
     // portal model
-    p->m = importer_load("portal");
+    float scale = 0.02f;
+    vec3 pos = { p->x / scale, 72, p->y / scale };
+    p->m = object_create(pos, scale, portal_model->meshes, portal_model->num_meshes, 1, NULL);
+
     quat_identity(p->m->rotation);
-    p->m->scale = 0.02f;
     object_set_center(p->m);
     renderer_init_object(p->m);
     p->m->receive_shadows = 1;
 
-    p->m->position[0] = p->x / p->m->scale;
-    p->m->position[1] = 72;
-    p->m->position[2] = p->y / p->m->scale;
-
     // random rotation
     vec3 y_axis = { 0, 1, 0 };
     quat_rotate(p->m->rotation, to_radians(random_range(0, 360)), y_axis);
+
+    // init particle generator
+    float spread = 0.015f;
+    particle_config pc = {
+      .position = { p->x, 0.5, p->y },
+      .velocity = { 0, 0.05f, 0 },
+      .color = { 0, 0, 1.0f },
+      .size = 0.8f,
+      .alpha = 1.0f,
+      .life = 1.5f,
+      .min_spread_x = -spread,
+      .max_spread_x = spread,
+      .min_spread_y = 0,
+      .max_spread_y = 0,
+      .min_spread_z = -spread,
+      .max_spread_z = spread,
+      .sprite_path = "assets/fire/fire.jpg"
+    };
+    p->pg = particle_generator_new(pc, 1000);
+    renderer_init_particle_generator(p->pg);
   }
 }
 
 void dungeon_generate() {
+  // portal model
+  portal_model = importer_load("portal");
+
   // init sample block
   material_init(&mat_stone);
   strcpy(mat_stone.name, "mat_stone");
@@ -176,6 +204,8 @@ void dungeon_generate() {
 }
 
 void dungeon_free() {
+  object_free(portal_model);
+
   renderer_free_object(ground);
   object_free(ground);
 
@@ -185,10 +215,6 @@ void dungeon_free() {
   renderer_free_object(block);
   for (int i = 0; i < MAX_ROOMS; i++) {
     object_free(&blocks[i]);
+    particle_generator_free(dungeon[i].portals[i].pg);
   }
-
-  /* for (int i = 0; i < NUM_PORTALS; i++) {
-    renderer_free_object(portals[i].m);
-    object_free(portals[i].m);
-  } */
 }

@@ -10,6 +10,7 @@ typedef struct {
   int y;
   light l;
   object* m;
+  particle_generator* pg;
 } portal;
 
 typedef struct {
@@ -19,7 +20,8 @@ typedef struct {
 } room;
 
 void dungeon_generate();
-void dungeon_render(render_list* rl, light** lights);
+void dungeon_update(float dt, camera* cam);
+void dungeon_render(render_list* rl, light** lights, particle_generator** pgs);
 void dungeon_free();
 
 #endif

@@ -16,7 +16,7 @@ object* object_create(vec3 position, GLfloat scale, mesh* meshes, int num_meshes
 
   // transform
   quat_identity(obj->rotation);
-  obj->scale = 1.0f;
+  obj->scale = scale;
   if (position) { vec3_copy(obj->position, position); }
   else { vec3_copy(obj->position, zero_vec); }
   
@@ -132,16 +132,20 @@ void object_set_position(object* o, vec3 pos) {
 }
 
 void object_free(object* o) {
-  if (o->num_meshes > 0) {
-    for (int i = 0; i < o->num_meshes; i++) {
-      free(o->meshes[i].vertices);
+  if (o->meshes != NULL) {
+    if (o->num_meshes > 0) {
+      for (int i = 0; i < o->num_meshes; i++) {
+        free(o->meshes[i].vertices);
+      }
     }
+    free(o->meshes);
+    o->meshes = NULL;
   }
-  free(o->meshes);
 
   if (o->skel != NULL) {
     skeleton_free(o->skel);
     free(o->skel);
+    o->skel = NULL;
   }
 
   for (int i = 0; i < o->anim_count; i++) {

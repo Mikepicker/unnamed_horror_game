@@ -21,6 +21,7 @@ GLuint renderer_skybox_shader;
 GLuint renderer_ssao_shader;
 GLuint renderer_ssao_blur_shader;
 GLuint renderer_post_shader;
+GLuint renderer_particle_shader;
 
 GLuint renderer_depth_fbo;
 GLuint renderer_depth_map;
@@ -361,6 +362,7 @@ void renderer_recompile_shader() {
   shader_compile("../engine/shaders/ssao.vs", "../engine/shaders/ssao.fs", NULL, &renderer_ssao_shader);
   shader_compile("../engine/shaders/ssao.vs", "../engine/shaders/blur.fs", NULL, &renderer_ssao_blur_shader);
   shader_compile("../engine/shaders/post.vs", "../engine/shaders/post.fs", NULL, &renderer_post_shader);
+  shader_compile("../engine/shaders/particle.vs", "../engine/shaders/particle.fs", NULL, &renderer_particle_shader);
 }
 
 int renderer_should_close() {
@@ -470,6 +472,49 @@ void renderer_free_object(object* o) {
     glDeleteBuffers(1, &(o->meshes[i].vbo));
     glDeleteBuffers(1, &(o->meshes[i].ebo));
   }
+}
+
+void renderer_init_particle_generator(particle_generator* pg) {
+  // set up mesh and attribute properties
+  float particle_quad[] = { 
+    0.0f, 1.0f, 0.0f, 1.0f, // vec2 pos, vec2 tex_coords
+    1.0f, 0.0f, 1.0f, 0.0f,
+    0.0f, 0.0f, 0.0f, 0.0f,
+
+    0.0f, 1.0f, 0.0f, 1.0f,
+    1.0f, 1.0f, 1.0f, 1.0f,
+    1.0f, 0.0f, 1.0f, 0.0f
+  }; 
+
+  // init pos vbo (will be updated)
+  glGenBuffers(1, &pg->vbo_pos);
+  glBindBuffer(GL_ARRAY_BUFFER, pg->vbo_pos);
+  glBufferData(GL_ARRAY_BUFFER, PARTICLE_GENERATOR_SIZE * 4 * sizeof(GLfloat), NULL, GL_DYNAMIC_DRAW);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+  // init alpha vbo (will be updated)
+  glGenBuffers(1, &pg->vbo_color_alpha);
+  glBindBuffer(GL_ARRAY_BUFFER, pg->vbo_color_alpha);
+  glBufferData(GL_ARRAY_BUFFER, PARTICLE_GENERATOR_SIZE * 4 * sizeof(GLfloat), NULL, GL_DYNAMIC_DRAW);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+  // init quad vbo & vao
+  glGenVertexArrays(1, &pg->vao);
+  glGenBuffers(1, &pg->vbo_quad);
+  glBindVertexArray(pg->vao);
+  glBindBuffer(GL_ARRAY_BUFFER, pg->vbo_quad);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(particle_quad), particle_quad, GL_STATIC_DRAW);
+
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+  // sprite
+  pg->sprite_id = load_image(pg->pc.sprite_path);
+}
+
+void renderer_free_particle_generator(particle_generator* pg) {
+  glDeleteVertexArrays(1, &(pg->vao));
+  glDeleteBuffers(1, &(pg->vbo_quad));
+  glDeleteBuffers(1, &(pg->vbo_pos));
 }
 
 static void render_aabb(object* o) {
@@ -591,7 +636,7 @@ static void render_objects(object *objects[], int objects_length, GLuint shader_
 
 static void render_quad() {
   if (renderer_vao == 0) {
-    float quadVertices[] = {
+    float quad_vertices[] = {
       // positions        // texture Coords
       -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
       -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
@@ -603,7 +648,7 @@ static void render_quad() {
     glGenBuffers(1, &renderer_vbo);
     glBindVertexArray(renderer_vao);
     glBindBuffer(GL_ARRAY_BUFFER, renderer_vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), &quad_vertices, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(1);
@@ -752,7 +797,86 @@ static void fill_omnishadows_transforms(mat4 transforms[6], mat4* proj, vec3 lig
   mat4_mul(transforms[5], *proj, transforms[5]);
 }
 
-void renderer_render_objects(object* objects[], int objects_length, object* screen_objects[], int screen_objects_length, light* lights[], int lights_length, camera* camera, void (*ui_render_callback)(void), skybox* sky)
+static void render_particle_generator(particle_generator* pg, const mat4 v, const mat4 p) {
+  // build pos+size buffer & color+alpha buffer
+  GLfloat buffer_pos_size[pg->amount * 4];
+  GLfloat buffer_color_alpha[pg->amount * 4];
+  for (int i = 0; i < pg->amount; i++) {
+    int j = pg->particles_indices_ordered[i];
+    buffer_pos_size[4 * i + 0] = pg->particles[j].position[0];
+    buffer_pos_size[4 * i + 1] = pg->particles[j].position[1];
+    buffer_pos_size[4 * i + 2] = pg->particles[j].position[2];
+    buffer_pos_size[4 * i + 3] = pg->particles[j].size;
+    
+    buffer_color_alpha[4 * i + 0] = pg->pc.color[0];
+    buffer_color_alpha[4 * i + 1] = pg->pc.color[1];
+    buffer_color_alpha[4 * i + 2] = pg->pc.color[2];
+    buffer_color_alpha[4 * i + 3] = pg->particles[j].alpha;
+  }
+
+  glUseProgram(renderer_particle_shader);
+
+  glUniformMatrix4fv(glGetUniformLocation(renderer_particle_shader, "view"), 1, GL_FALSE, (const GLfloat*) v);
+  glUniformMatrix4fv(glGetUniformLocation(renderer_particle_shader, "projection"), 1, GL_FALSE, (const GLfloat*) p);
+
+  glBindVertexArray(pg->vao);
+
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+
+    // 4 = vec2 pos + vec2 tex_coords
+    glBindBuffer(GL_ARRAY_BUFFER, pg->vbo_quad);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+
+    // 4 = vec3 pos + float size
+    glBindBuffer(GL_ARRAY_BUFFER, pg->vbo_pos);
+
+    // stream new data
+    glBufferData(GL_ARRAY_BUFFER, pg->amount * 4 * sizeof(GLfloat), NULL, GL_DYNAMIC_DRAW); // Buffer orphaning, a common way to improve streaming perf. See above link for details.
+    glBufferSubData(GL_ARRAY_BUFFER, 0, pg->amount * sizeof(GLfloat) * 4, &buffer_pos_size);
+
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)0);
+    glVertexAttribDivisor(1, 1);
+
+    // color + alpha
+    glBindBuffer(GL_ARRAY_BUFFER, pg->vbo_color_alpha);
+
+    // stream new data
+    glBufferData(GL_ARRAY_BUFFER, pg->amount * 4 * sizeof(GLfloat), NULL, GL_DYNAMIC_DRAW);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, pg->amount * sizeof(GLfloat) * 4, &buffer_color_alpha);
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)0);
+    glVertexAttribDivisor(2, 1);
+
+    // bind sprite
+    if (strlen(pg->pc.sprite_path) > 0) {
+      glUniform1i(glGetUniformLocation(renderer_particle_shader, "sprite"), 0);
+      glActiveTexture(GL_TEXTURE0);
+      glBindTexture(GL_TEXTURE_2D, pg->sprite_id);
+      glUniform1i(glGetUniformLocation(renderer_particle_shader, "has_sprite"), 1);
+    } else {
+      glUniform1i(glGetUniformLocation(renderer_particle_shader, "has_sprite"), 0);
+    }
+
+    // use additive blending to give it a 'glow' effect
+    glEnable(GL_BLEND);
+    glDepthMask(GL_FALSE);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
+    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 6, pg->amount);
+
+    glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
+
+  glBindVertexArray(0);
+
+  // don't forget to reset to default blending mode
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glDisable(GL_BLEND);
+  glDepthMask(GL_TRUE);
+}
+
+void renderer_render_objects(object* objects[], int objects_length, object* screen_objects[], int screen_objects_length, light* lights[], int lights_length, camera* camera, void (*ui_render_callback)(void), skybox* sky, particle_generator* particle_generators[], int particle_generators_length)
 {
   GLint time;
   int width, height;
@@ -863,6 +987,7 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
     omni_light_count++;
   }
 
+
   /*-------------------------------------------------------------------------*/
   /*------------------------------geometry pass------------------------------*/
   /*-------------------------------------------------------------------------*/
@@ -897,6 +1022,7 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
   render_objects(screen_objects, screen_objects_length, renderer_geometry_shader);
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
   /*---------------------------------------------------------------------*/
   /*------------------------------ssao pass------------------------------*/
   /*---------------------------------------------------------------------*/
@@ -1017,8 +1143,9 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
   }
 
   render_quad();
+
   /*-------------------------------------------------------------------------*/
-  /*------------------------------fxaa pass------------------------------*/
+  /*--------------------------------fxaa pass--------------------------------*/
   /*-------------------------------------------------------------------------*/
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glClear(GL_COLOR_BUFFER_BIT);
@@ -1035,13 +1162,24 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
 
   render_quad();
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
   /*----------------------------------------------------------------------------------------------------*/
   /*-----------------------------blit gbuffer depth to default framebuffer------------------------------*/
   /*----------------------------------------------------------------------------------------------------*/
+
   glBindFramebuffer(GL_READ_FRAMEBUFFER, renderer_g_buffer);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // write to default framebuffer
   glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  /*--------------------------------------------------------------------*/
+  /*-----------------------------particles------------------------------*/
+  /*--------------------------------------------------------------------*/
+
+  for (int i = 0; i < particle_generators_length; i++) {
+    render_particle_generator(particle_generators[i], v, p);
+  }
+
   /*-----------------------------------------------------------------*/
   /*-----------------------------skybox------------------------------*/
   /*-----------------------------------------------------------------*/

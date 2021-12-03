@@ -10,7 +10,7 @@ typedef struct {
     void** values;
 } dict;
  
-dict *dict_new(int size); 
+dict* dict_new(int size); 
 int dict_index(dict* h, const char key[256]); 
 void dict_insert(dict* h, const char key[256], void* value); 
 void* dict_search(dict* h, const char key[256]);
