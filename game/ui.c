@@ -8,22 +8,20 @@
 #define NK_INCLUDE_FONT_BAKING
 #define NK_INCLUDE_DEFAULT_FONT
 #define NK_IMPLEMENTATION
-#define NK_GLFW_GL3_IMPLEMENTATION
-#define NK_KEYSTATE_BASED_INPUT
+#define NK_SDL_GL3_IMPLEMENTATION
 
 #include "../libs/nuklear.h"
-#include "../libs/nuklear_glfw_gl3.h"
+#include "../libs/nuklear_sdl_gl3.h"
 
 struct nk_context *ctx;
 struct nk_colorf bg;
 
-void ui_init() {
+void ui_init(SDL_Window* window) {
 
- // ctx = nk_glfw3_init(window, NK_GLFW3_INSTALL_CALLBACKS);
- ctx = nk_glfw3_init(window, NK_GLFW3_DEFAULT);
+ ctx = nk_sdl_init(window);
  {struct nk_font_atlas *atlas;
-   nk_glfw3_font_stash_begin(&atlas);
-   nk_glfw3_font_stash_end();}
+   nk_sdl_font_stash_begin(&atlas);
+   nk_sdl_font_stash_end();}
 
  bg.r = 0.10f, bg.g = 0.18f, bg.b = 0.24f, bg.a = 1.0f;
 
@@ -49,9 +47,19 @@ void ui_init() {
  ctx->style.button.text_active = nk_rgb(28,48,62);
 }
 
-void ui_render() {
+void ui_input_begin() {
+  nk_input_begin(ctx);
+}
 
-  nk_glfw3_new_frame();
+void ui_input(SDL_Event* ev) {
+  nk_sdl_handle_event(ev);
+}
+
+void ui_input_end() {
+  nk_input_end(ctx);
+}
+
+void ui_render() {
 
   camera* cam = &game_camera;
 
@@ -76,6 +84,7 @@ void ui_render() {
 
     nk_layout_row_static(ctx, 30, 120, 1);
     if (nk_button_label(ctx, "Start game")) {
+      printf("GAME START\n");
       game_start();
     }
 
@@ -119,9 +128,9 @@ void ui_render() {
   }
   nk_end(ctx);
 
-  nk_glfw3_render(NK_ANTI_ALIASING_ON, MAX_VERTEX_BUFFER, MAX_ELEMENT_BUFFER);
+  nk_sdl_render(NK_ANTI_ALIASING_ON, MAX_VERTEX_BUFFER, MAX_ELEMENT_BUFFER);
 }
 
 void ui_free() {
-  nk_glfw3_shutdown();
+  nk_sdl_shutdown();
 }

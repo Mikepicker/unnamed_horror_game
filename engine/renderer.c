@@ -9,8 +9,6 @@
 
 #define MAX_OMNI_SHADOWS 4
 
-GLFWwindow* window;
-
 GLuint renderer_geometry_shader;
 GLuint renderer_lighting_shader;
 GLuint renderer_main_shader;
@@ -283,31 +281,7 @@ void init_omni_shadows() {
   }
 }
 
-int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow** out_window) {
-  glfwInit();
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-  glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
-  glfwWindowHint(GLFW_SAMPLES, 4);
-#ifdef __APPLE__
-  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-#endif
-
-  window = glfwCreateWindow(width, height, title, fullscreen > 0 ? glfwGetPrimaryMonitor() : NULL, NULL);
-  *out_window = window;
-  if (!window) {
-    printf("Failed to create GLFW window\n");
-    glfwTerminate();
-    return -1;
-  }
-  glfwMakeContextCurrent(window);
-
-  if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-    printf("Failed to initialize GLAD\n");
-    return -1;
-  }
-
+int renderer_init(int width, int height) {
   // compile shaders
   renderer_recompile_shader();
 
@@ -347,9 +321,7 @@ int renderer_init(char* title, int width, int height, int fullscreen, GLFWwindow
   return 0;
 }
 
-void renderer_cleanup() {
-  glfwTerminate();
-}
+void renderer_free() {}
 
 void renderer_recompile_shader() {
   shader_compile("../engine/shaders/geometry.vs", "../engine/shaders/geometry.fs", NULL, &renderer_geometry_shader);
@@ -363,10 +335,6 @@ void renderer_recompile_shader() {
   shader_compile("../engine/shaders/ssao.vs", "../engine/shaders/blur.fs", NULL, &renderer_ssao_blur_shader);
   shader_compile("../engine/shaders/post.vs", "../engine/shaders/post.fs", NULL, &renderer_post_shader);
   shader_compile("../engine/shaders/particle.vs", "../engine/shaders/particle.fs", NULL, &renderer_particle_shader);
-}
-
-int renderer_should_close() {
-  return glfwWindowShouldClose(window);
 }
 
 static void add_aabb(object* o) {
@@ -876,12 +844,9 @@ static void render_particle_generator(particle_generator* pg, const mat4 v, cons
   glDepthMask(GL_TRUE);
 }
 
-void renderer_render_objects(object* objects[], int objects_length, object* screen_objects[], int screen_objects_length, light* lights[], int lights_length, camera* camera, void (*ui_render_callback)(void), skybox* sky, particle_generator* particle_generators[], int particle_generators_length)
+void renderer_render_objects(int width, int height, object* objects[], int objects_length, object* screen_objects[], int screen_objects_length, light* lights[], int lights_length, camera* camera, void (*ui_render_callback)(void), skybox* sky, particle_generator* particle_generators[], int particle_generators_length)
 {
   GLint time;
-  int width, height;
-
-  glfwGetFramebufferSize(window, &width, &height);
 
   float ratio = width / (float)height;
 
@@ -1010,9 +975,6 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
   glUniformMatrix4fv(glGetUniformLocation(renderer_geometry_shader, "V"), 1, GL_FALSE, (const GLfloat*) v);
   glUniformMatrix4fv(glGetUniformLocation(renderer_geometry_shader, "P"), 1, GL_FALSE, (const GLfloat*) p);
 
-  // pass time to shader
-  glUniform1f(glGetUniformLocation(renderer_geometry_shader, "time"), (float)glfwGetTime());
-
   render_objects(objects, objects_length, renderer_geometry_shader);
 
   // render screen objects
@@ -1114,9 +1076,6 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
     glActiveTexture(GL_TEXTURE5);
     glBindTexture(GL_TEXTURE_CUBE_MAP, sky->texture_id);
   }
-
-  // pass time to shader
-  glUniform1f(glGetUniformLocation(renderer_lighting_shader, "time"), (float)glfwGetTime());
 
   // pass ssao texture to shader
   glUniform1i(glGetUniformLocation(renderer_lighting_shader, "ssao"), 6);
@@ -1220,17 +1179,9 @@ void renderer_render_objects(object* objects[], int objects_length, object* scre
 
   // reset opengl state
   set_opengl_state();
-
-  // swap buffers and poll events
-  glfwSwapBuffers(window);
-
-  // poll events
-  glfwPollEvents();
 }
 
-ray renderer_raycast(camera* camera, float x, float y, float ray_len) {
-  int width, height;
-  glfwGetFramebufferSize(window, &width, &height);
+ray renderer_raycast(int width, int height, camera* camera, float x, float y, float ray_len) {
   float ratio = width / (float)height;
 
   // normalised device coordinates [-1:1, -1:1, -1:1]

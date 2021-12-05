@@ -7,7 +7,8 @@
 #include <stdlib.h>
 #include <time.h>
 #include <glad/glad.h>
-#include <GLFW/glfw3.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_opengl.h>
 #include <stdbool.h>
 #include <math.h>
 #include <AL/al.h>

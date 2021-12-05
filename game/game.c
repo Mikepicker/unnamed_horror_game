@@ -1,4 +1,8 @@
 #include "game.h"
+#include "ui.h"
+
+// SDL window
+SDL_Window* win;
 
 camera game_camera;
 
@@ -27,7 +31,9 @@ vec3 target_pos;
 // player
 object* player;
 
-void game_init() {
+void game_init(SDL_Window* window) {
+  win = window;
+
   // game camera
   game_camera.front[0] = 0.0f;
   game_camera.front[1] = 0.0f;
@@ -70,7 +76,7 @@ void game_init() {
   input_init();
 
   // init ui
-  ui_init();
+  ui_init(window);
 
   // skybox
   const char* faces[6];
@@ -130,6 +136,11 @@ void game_init() {
 
 void game_start() {
 
+}
+
+void game_input(SDL_Event* event) {
+  ui_input(event);
+  input_event(event);
 }
 
 void update_mutant() {
@@ -197,12 +208,13 @@ void update_player() {
 }
 
 void game_update() {
-  float current_frame = glfwGetTime();
-  delta_time = current_frame - last_frame;
+  unsigned int current_frame = SDL_GetTicks();
+  delta_time = (current_frame - last_frame) * 0.001f;
   last_frame = current_frame;
   fps = 1 / delta_time;
 
-  input_update();
+  // input
+  input_update(delta_time);
 
   // mutant
   update_mutant();
@@ -221,11 +233,6 @@ void game_render() {
   // render entities
   render_list_clear(game_render_list);
 
-  // render_list_add(microdrag.game_render_list, sphere);
-
-  // sample rock
-  // render_list_add(game_render_list, rock);
-
   // render character
   // render_list_add(game_render_list, mutant.o);
 
@@ -233,7 +240,10 @@ void game_render() {
   dungeon_render(game_render_list, lights, pgs);
 
   // render
-  renderer_render_objects(game_render_list->objects, game_render_list->size, NULL, 0, lights, NUM_PORTALS + 1, &game_camera, ui_render, &sky, pgs, NUM_PORTALS);
+  int width; int height;
+  SDL_GetWindowSize(win, &width, &height);
+
+  renderer_render_objects(width, height, game_render_list->objects, game_render_list->size, NULL, 0, lights, NUM_PORTALS + 1, &game_camera, ui_render, &sky, pgs, NUM_PORTALS);
 }
 
 void game_free() {
@@ -248,5 +258,5 @@ void game_free() {
 
   // cleanup engine modules
   audio_free();
-  renderer_cleanup();
+  renderer_free();
 }

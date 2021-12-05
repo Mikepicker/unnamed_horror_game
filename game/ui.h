@@ -22,7 +22,10 @@
 #define MAX_VERTEX_BUFFER 512 * 1024
 #define MAX_ELEMENT_BUFFER 128 * 1024
 
-void ui_init();
+void ui_init(SDL_Window* window);
+void ui_input_begin();
+void ui_input(SDL_Event* event);
+void ui_input_end();
 void ui_render();
 void ui_free();
 

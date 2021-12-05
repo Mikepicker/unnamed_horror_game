@@ -35,6 +35,7 @@ extern entity character;
 
 void game_init();
 void game_start();
+void game_input(SDL_Event* event);
 void game_update();
 void game_render();
 void game_free();

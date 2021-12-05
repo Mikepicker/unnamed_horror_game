@@ -2,7 +2,7 @@
 OBJS = game/main.o game/game.o game/ui.o game/input.o game/bmp.o game/dungeon.o engine/glad.o engine/shader.o engine/random.o engine/renderer.o engine/importer.o engine/audio.o engine/dict.o engine/render_list.o engine/factory.o engine/debug.o engine/physics.o engine/skybox.o engine/animator.o engine/particle_generator.o engine/data/object.o engine/data/mesh.o engine/data/material.o engine/data/skeleton.o engine/data/frame.o engine/data/animation.o
 
 #CC specifies which compiler we're using
-CC = gcc -g `pkg-config --cflags glfw3`
+CC = gcc -g
 
 #COMPILER_FLAGS specifies the additional compilation options we're using
 # -w suppresses all warnings
@@ -12,7 +12,7 @@ CC = gcc -g `pkg-config --cflags glfw3`
 
 #OBJ_NAME specifies the name of our exectuable
 OBJ_NAME = game/craft
-LINKER_FLAGS = `pkg-config --static --libs glfw3 openal freealut`
+LINKER_FLAGS = `pkg-config --static --libs openal freealut sdl2`
 
 #This is the target that compiles our executable
 
