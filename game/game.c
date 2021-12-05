@@ -34,6 +34,11 @@ object* player;
 void game_init(SDL_Window* window) {
   win = window;
 
+  // init renderer
+  int width; int height;
+  SDL_GetWindowSize(window, &width, &height);
+  renderer_init(width, height);
+
   // game camera
   game_camera.front[0] = 0.0f;
   game_camera.front[1] = 0.0f;
@@ -132,6 +137,12 @@ void game_init(SDL_Window* window) {
 
   // dungeon
   dungeon_generate();
+}
+
+void game_resize(SDL_Window* window) {
+  int width; int height;
+  SDL_GetWindowSize(window, &width, &height);
+  renderer_init(width, height);
 }
 
 void game_start() {

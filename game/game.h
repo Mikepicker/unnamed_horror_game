@@ -34,6 +34,7 @@ extern light* lights[];
 extern entity character;
 
 void game_init();
+void game_resize(SDL_Window* window);
 void game_start();
 void game_input(SDL_Event* event);
 void game_update();

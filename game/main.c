@@ -47,9 +47,6 @@ int main()
   b32 running = 1;
   b32 fullScreen = 0;
 
-  // init renderer
-  renderer_init(GAME_WIDTH, GAME_HEIGHT);
-
   // init audio
   if (audio_init() < 0) {
     printf("Error initializing audio\n");
@@ -73,9 +70,11 @@ int main()
             fullScreen = !fullScreen;
             if (fullScreen) {
               SDL_SetWindowFullscreen(window, window_flags | SDL_WINDOW_FULLSCREEN);
+              game_resize(window);
             }
             else {
               SDL_SetWindowFullscreen(window, window_flags);
+              game_resize(window);
             }
             break;
           default:
