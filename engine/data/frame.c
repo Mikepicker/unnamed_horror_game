@@ -61,9 +61,13 @@ void frame_descendants_to(frame* f0, frame* f1, float amount, int joint, frame* 
 
 }
 
-// TODO: Optimize this, just compute all the transforms at once
 void frame_joint_transform(mat4 ret, frame* f, int i) {
   
+  if (f->joint_transforms_computed[i]) {
+    mat4_copy(ret, f->joint_transforms[i]);
+    return;
+  }
+
   mat4 rot;
   mat4_identity(ret);
 
@@ -79,6 +83,8 @@ void frame_joint_transform(mat4 ret, frame* f, int i) {
   mat4_from_quat(rot, f->joint_rotations[i]);
   mat4_mul(ret, ret, t);
   mat4_mul(ret, ret, rot);
+  mat4_copy(f->joint_transforms[i], ret);
+  f->joint_transforms_computed[i] = 1;
 
 }
 
@@ -97,6 +103,10 @@ void frame_joint_add(frame* f, int joint_id, int parent, vec3 position, quat rot
 
 void frame_gen_transforms(frame* f) {
   
+  for (int i = 0; i < f->joint_count; i++) {
+    f->joint_transforms_computed[i] = 0;
+  }
+
   for (int i = 0; i < f->joint_count; i++) {
     frame_joint_transform(f->transforms[i], f, i);
   }

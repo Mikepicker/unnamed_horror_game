@@ -10,6 +10,8 @@ typedef struct {
   int joint_parents[MAX_JOINTS];
   vec3 joint_positions[MAX_JOINTS];
   quat joint_rotations[MAX_JOINTS];
+  mat4 joint_transforms[MAX_JOINTS];
+  int joint_transforms_computed[MAX_JOINTS];
   mat4 transforms[MAX_JOINTS];
   mat4 transforms_inv[MAX_JOINTS];
 } frame;
