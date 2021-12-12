@@ -1,5 +1,6 @@
 #include "game.h"
 #include "ui.h"
+#include "input.h"
 
 // SDL window
 SDL_Window* win;
@@ -11,7 +12,7 @@ float delta_time;
 float last_frame;
 float fps;
 
-light* lights[NUM_PORTALS + 1];
+light* lights[NUM_PORTALS + 2]; // portals + sun + key light
 int num_lights;
 
 particle_generator* pgs[NUM_PORTALS];
@@ -20,16 +21,21 @@ particle_generator* pgs[NUM_PORTALS];
 enum game_state state;
 
 light sun;
+light key_light;
 
 // skybox
 skybox sky;
 
-// mutant
-entity mutant;
+// monster
+entity monster;
 vec3 target_pos;
 
 // player
-object* player;
+player_entity player;
+
+// key
+object* key;
+int key_rot_x_debug;
 
 void game_init(SDL_Window* window) {
   win = window;
@@ -66,6 +72,7 @@ void game_init(SDL_Window* window) {
   sun.color[1] = 1;
   sun.color[2] = 1;
   sun.ambient = 0.0f;
+  sun.cast_shadows = 0;
 
   // game loop
   delta_time = 0.0f;
@@ -113,24 +120,46 @@ void game_init(SDL_Window* window) {
   mat_floor.reflectivity = 0;
   mat_floor.texture_subdivision = 300;
 
-  // load character
-  mutant.state = MOVE;
-  mutant.o = importer_load("mutant");
-  mutant.o->scale = 0.015f;
-  mutant.o->receive_shadows = 0;
-  physics_compute_aabb(mutant.o);
-  mutant.run_speed = 4;
-  mutant.dir[0] = 0;
-  mutant.dir[1] = 0;
-  mutant.dir[2] = 1;
-  vec3_zero(mutant.o->position);
+  // load monster
+  monster.state = MOVE;
+  monster.o = importer_load("mutant");
+  monster.o->scale = 0.015f;
+  monster.o->receive_shadows = 0;
+  physics_compute_aabb(monster.o);
+  monster.run_speed = 4;
+  monster.dir[0] = 0;
+  monster.dir[1] = 0;
+  monster.dir[2] = 1;
+  vec3_zero(monster.o->position);
   vec3_zero(target_pos);
-  renderer_init_object(mutant.o);
-  animator_play(mutant.o, "walk", 1);
+  renderer_init_object(monster.o);
+  animator_play(monster.o, "walk", 1);
 
-  // player as cube (need it only for collisions)
-  player = factory_create_box(2, 2, 2);
-  physics_compute_aabb(player);
+  monster.current_room = 0;
+
+  // key
+  key = importer_load("key");
+  object_set_center(key);
+  renderer_init_object(key);
+  vec3 key_pos = { 20, 2, 10 };
+  // vec3_scale(key_pos, key_pos, 1 / key->scale);
+  vec3_copy(key->position, key_pos);
+
+  // key light
+  lights[NUM_PORTALS] = &key_light;
+  key_light.type = POINT;
+  key_light.position[0] = key->position[1];
+  key_light.position[1] = 1;
+  key_light.position[2] = key->position[2];
+  key_light.ambient = 0.5;
+  key_light.constant = 1.0;
+  key_light.linear = 0.09;
+  key_light.quadratic = 0.032;
+  key_light.color[0] = 1.0;
+  key_light.color[1] = 0.0;
+  key_light.color[2] = 0.0;
+  key_light.cast_shadows = 0;
+  vec3_copy(key_light.position, key->position);
 
   // game state
   state = MENU;
@@ -154,30 +183,34 @@ void game_input(SDL_Event* event) {
   input_event(event);
 }
 
-void update_mutant() {
-  // update animation
-  animator_update(mutant.o, delta_time);
+void update_key() {
+  key->position[1] = sinf((float)SDL_GetTicks() / 1000) * 0.2f + 2;
+}
 
-  enum entity_state state = mutant.state;
+void update_monster() {
+  // update animation
+  animator_update(monster.o, delta_time);
+
+  enum entity_state state = monster.state;
 
   // attacking
   /* if (state == ATTACK) {
-    int key = animator_current_keyframe(mutant.o);
+    int key = animator_current_keyframe(monster.o);
     if (enemy.state != DIE && key > 18 && key < 22) {
       animator_play(enemy.o, "die", 0);
       enemy.state = DIE;
-    } else if (animator_finished(mutant.o)) {
-      animator_play(mutant.o, "idle", 1);
-      mutant.state = IDLE;
+    } else if (animator_finished(monster.o)) {
+      animator_play(monster.o, "idle", 1);
+      monster.state = IDLE;
     }
   }
 
   if (state == IDLE) {
     vec3 dist_to_enemy;
-    vec3_sub(dist_to_enemy, mutant.o->position, enemy.o->position);
+    vec3_sub(dist_to_enemy, monster.o->position, enemy.o->position);
     if (enemy.state != DIE && vec3_len(dist_to_enemy) < 2 * 1/enemy.o->scale) {
-      animator_play(mutant.o, "attack", 0);
-      mutant.state = ATTACK;
+      animator_play(monster.o, "attack", 0);
+      monster.state = ATTACK;
       return;
     }
   } */
@@ -185,29 +218,29 @@ void update_mutant() {
   // move character to target
   vec3 dir, dist, scaled_pos;
   vec3_copy(scaled_pos, game_camera.pos);
-  vec3_scale(scaled_pos, scaled_pos, 1 / mutant.o->scale);
-  vec3_sub(dist, scaled_pos, mutant.o->position);
+  vec3_scale(scaled_pos, scaled_pos, 1 / monster.o->scale);
+  vec3_sub(dist, scaled_pos, monster.o->position);
 
-  if (vec3_len(dist) > 2) {
-    if (strcmp(mutant.o->current_anim->name, "run") != 0)
-      animator_play(mutant.o, "run", 1);
+  if (vec3_len(dist) * monster.o->scale > 8) {
+    if (strcmp(monster.o->current_anim->name, "run") != 0)
+      animator_play(monster.o, "run", 1);
 
     // position
     vec3_norm(dir, dist);
-    vec3_scale(dir, dir, mutant.run_speed);
+    vec3_scale(dir, dir, monster.run_speed);
     dir[1] = 0;
-    vec3_add(mutant.o->position, mutant.o->position, dir);
+    vec3_add(monster.o->position, monster.o->position, dir);
 
     // rotation
     vec3 front = { 0.0f, 0.0f, 1.0f };
     vec3 y_axis = { 0, 1, 0 };
     float angle = vec3_angle_between(front, dir, y_axis);
-    quat_rotate(mutant.o->rotation, angle, y_axis);
+    quat_rotate(monster.o->rotation, angle, y_axis);
   } else {
-    animator_play(mutant.o, "idle", 1);
-    mutant.state = IDLE;
+    if (strcmp(monster.o->current_anim->name, "idle") != 0)
+      animator_play(monster.o, "idle", 1);
+    monster.state = IDLE;
   }
-
 }
 
 void update_player() {
@@ -215,6 +248,17 @@ void update_player() {
   // collide with walls
   if (game_camera.pos[0] <= -10) {
     game_camera.pos[0] = -10;
+  }
+
+  // check if player is close to a portal
+  for (int i = 0; i < NUM_PORTALS; i++) {
+    portal* p = &dungeon[current_room].portals[i];
+    vec3 p_pos = { p->x, 0, p->y };
+    vec3 dist;
+    vec3_sub(dist, p_pos, game_camera.pos);
+    if (vec3_len(dist) < 2.5f) {
+      player.close_portal = p;
+    }
   }
 }
 
@@ -227,11 +271,14 @@ void game_update() {
   // input
   input_update(delta_time);
 
-  // mutant
-  update_mutant();
+  // monster
+  update_monster();
 
   // player
   update_player();
+
+  // key
+  update_key();
 
   // audio
   audio_move_listener(game_camera.pos);
@@ -244,8 +291,12 @@ void game_render() {
   // render entities
   render_list_clear(game_render_list);
 
-  // render character
-  // render_list_add(game_render_list, mutant.o);
+  // render monster
+  if (monster.current_room == current_room)
+    render_list_add(game_render_list, monster.o);
+
+  // render key
+  render_list_add(game_render_list, key);
 
   // render room
   dungeon_render(game_render_list, lights, pgs);
@@ -262,6 +313,12 @@ void game_free() {
 
   // free dungeon
   dungeon_free();
+
+  //renderer_free_object(monster.o);
+  //object_free(monster.o);
+
+  renderer_free_object(key);
+  object_free(key);
 
   ui_free();
 

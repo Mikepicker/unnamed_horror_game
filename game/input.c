@@ -1,4 +1,6 @@
 #include "input.h"
+#include "game.h"
+#include "dungeon.h"
 
 input input_data;
 float camera_anim_time;
@@ -83,13 +85,19 @@ void input_update(float dt) {
 
 void input_event(SDL_Event* event) {
   if (event->type == SDL_KEYUP) {
-    if (event->key.keysym.sym == SDLK_c) {
-      input_data.capture_cursor = !input_data.capture_cursor;
-      SDL_SetRelativeMouseMode(input_data.capture_cursor == 0 ? SDL_TRUE : SDL_FALSE);
-    }
-
-    if (event->key.keysym.sym == SDLK_o) {
-      renderer_recompile_shader(); 
+    switch(event->key.keysym.sym) {
+      case SDLK_c:
+        input_data.capture_cursor = !input_data.capture_cursor;
+        SDL_SetRelativeMouseMode(input_data.capture_cursor == 0 ? SDL_TRUE : SDL_FALSE);
+        break;
+      case SDLK_o:
+        renderer_recompile_shader(); 
+        break;
+      case SDLK_SPACE:
+        if (player.close_portal != NULL)
+          dungeon_change_room(current_room + 1);
+      default:
+        break;
     }
   } else if (event->type == SDL_MOUSEMOTION) {
     input_mouse_callback(event->motion.xrel, event->motion.yrel);

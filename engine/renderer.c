@@ -302,7 +302,7 @@ int renderer_init(int width, int height) {
   init_omni_shadows();
 
   // fxaa
-  renderer_fxaa_enabled = 1;
+  renderer_fxaa_enabled = 0;
 
   // ssao
   renderer_ssao_enabled = 0;
@@ -696,6 +696,8 @@ static void pass_light_uniform(int light_index, light* l, mat4 view, mat4 light_
   sprintf(uniform_light_linear, "lights[%d].linear", light_index);
   char uniform_light_quadratic[256];
   sprintf(uniform_light_quadratic, "lights[%d].quadratic", light_index);
+  char uniform_cast_shadows[256];
+  sprintf(uniform_cast_shadows, "lights[%d].cast_shadows", light_index);
   char uniform_light_space_matrix[256];
   sprintf(uniform_light_space_matrix, "lights[%d].light_space_matrix", light_index);
 
@@ -716,6 +718,7 @@ static void pass_light_uniform(int light_index, light* l, mat4 view, mat4 light_
   glUniform1f(glGetUniformLocation(shader_id, uniform_light_constant), l->constant);
   glUniform1f(glGetUniformLocation(shader_id, uniform_light_linear), l->linear);
   glUniform1f(glGetUniformLocation(shader_id, uniform_light_quadratic), l->quadratic);
+  glUniform1i(glGetUniformLocation(shader_id, uniform_cast_shadows), l->cast_shadows);
   glUniformMatrix4fv(glGetUniformLocation(shader_id, uniform_light_space_matrix), 1, GL_FALSE, (const GLfloat*) light_space_matrix);
 }
 

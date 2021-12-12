@@ -2,8 +2,6 @@
 #define game_h
 
 #include "../engine/seaengine.h"
-#include "ui.h"
-#include "input.h"
 #include "dungeon.h"
 
 #define GAME_WIDTH 1080
@@ -24,14 +22,23 @@ typedef struct {
   enum entity_state state;
   vec3 dir;
   float run_speed;
+  int current_room;
 } entity;
+
+// player
+typedef struct {
+  int health;
+  portal* close_portal;
+} player_entity;
 
 extern float delta_time;
 extern float fps;
 extern camera game_camera;
 extern vec3 target_pos;
 extern light* lights[];
-extern entity character;
+extern player_entity player;
+extern entity monster;
+extern int key_rot_x_debug;
 
 void game_init();
 void game_resize(SDL_Window* window);

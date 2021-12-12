@@ -23,6 +23,7 @@ struct Light {
   float constant;
   float linear;
   float quadratic;
+  int cast_shadows;
   mat4 light_space_matrix;
 };
 
@@ -136,7 +137,7 @@ vec3 calc_dir_light(Light l, vec3 diffuse, float specular, vec3 normal, float ao
   vec3 l_specular = specular * l.color * spec;
 
   float shadow = 0.0;
-  if (receive_shadows > 0) {
+  if (l.cast_shadows == 1 && receive_shadows > 0) {
     shadow = shadow_calculation(frag_pos_light_space, light_dir, normal);
   }
 
@@ -164,7 +165,7 @@ vec3 calc_point_light(Light l, int shadow_map_index, vec3 diffuse, float specula
   l_specular *= attenuation;
 
   float shadow = 0.0;
-  if (shadow_map_index < MAX_OMNI_SHADOWS && receive_shadows > 0) {
+  if (l.cast_shadows == 1 && shadow_map_index < MAX_OMNI_SHADOWS && receive_shadows > 0) {
     vec3 light_pos_world_space = (view_inv * vec4(l.position, 1.0)).xyz;
     
     // GLSL 3 limitation

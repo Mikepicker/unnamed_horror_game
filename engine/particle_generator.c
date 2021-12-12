@@ -99,8 +99,8 @@ void particle_generator_update(particle_generator* pg, float dt, unsigned int ne
   }
 
   // sort indices for alpha blending
-  sort_struct s = { .cam = cam, .particles = pg->particles };
-  qsort_r(pg->particles_indices_ordered, pg->amount, sizeof(int), sort_particles, &s);
+  // sort_struct s = { .cam = cam, .particles = pg->particles };
+  // qsort_r(pg->particles_indices_ordered, pg->amount, sizeof(int), sort_particles, &s);
 }
 
 void particle_generator_free(particle_generator* pg) {

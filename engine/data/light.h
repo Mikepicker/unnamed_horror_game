@@ -21,6 +21,9 @@ typedef struct {
   float constant;
   float linear;
   float quadratic;
+
+  // cast shadows
+  int cast_shadows;
 } light;
 
 #endif

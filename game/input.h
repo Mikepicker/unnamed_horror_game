@@ -2,7 +2,6 @@
 #define input_h
 
 #include "../engine/seaengine.h"
-#include "game.h"
 
 typedef struct {
   int first_mouse;

@@ -5,3 +5,5 @@ game/craft
 game/maps/*
 tags
 *.bmp
+profile.*
+gmon.out

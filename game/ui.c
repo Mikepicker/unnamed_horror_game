@@ -1,4 +1,6 @@
 #include "ui.h"
+#include "dungeon.h"
+#include "game.h"
 
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_IO
@@ -63,16 +65,17 @@ void ui_render() {
 
   camera* cam = &game_camera;
 
+  int layout_width = 200;
+
   // debug
   if (nk_begin(ctx, "Debug", nk_rect(800, 50, 400, 500),
         NK_WINDOW_BORDER|NK_WINDOW_MOVABLE|NK_WINDOW_SCALABLE|
-        NK_WINDOW_MINIMIZABLE|NK_WINDOW_TITLE))
-  {
-    nk_layout_row_static(ctx, 30, 120, 1);
+        NK_WINDOW_MINIMIZABLE|NK_WINDOW_TITLE)) {
+    nk_layout_row_static(ctx, 30, layout_width, 1);
     if (nk_button_label(ctx, "Toggle AABB"))
       renderer_render_aabb = renderer_render_aabb == 0 ? 1 : 0;
 
-    nk_layout_row_static(ctx, 30, 120, 1);
+    nk_layout_row_static(ctx, 30, layout_width, 1);
     if (nk_button_label(ctx, "Reset camera")) {
       cam->pos[0] = 0.0f; 
       cam->pos[1] = 2.0f; 
@@ -82,44 +85,45 @@ void ui_render() {
       cam->front[2] = -1.0f;
     }
 
-    nk_layout_row_static(ctx, 30, 120, 1);
+    nk_layout_row_static(ctx, 30, layout_width, 1);
     if (nk_button_label(ctx, "Start game")) {
       printf("GAME START\n");
       game_start();
     }
 
-    nk_layout_row_static(ctx, 30, 120, 1);
+    nk_layout_row_static(ctx, 30, layout_width, 1);
     if (nk_button_label(ctx, "Compile shader")) {
       renderer_recompile_shader();
     }
 
-    nk_layout_row_static(ctx, 30, 120, 1);
-    if (nk_button_label(ctx, "Set light here")) {
-      vec3_copy(lights[0]->position, cam->pos);
-    }
+    nk_layout_row_static(ctx, 30, 220, 1);
+    nk_property_int(ctx, "Change Room:", 0, &current_room, 2, 1, 1);
 
-    nk_layout_row_static(ctx, 30, 120, 1);
+    nk_layout_row_static(ctx, 30, 220, 1);
+    nk_property_int(ctx, "Key rot x", 0, &key_rot_x_debug, 10, 1, 1);
+
+    nk_layout_row_static(ctx, 30, layout_width, 1);
     if (nk_button_label(ctx, "Toggle depth map")) {
       renderer_shadows_debug_enabled = renderer_shadows_debug_enabled == 0 ? 1 : 0;
     }
 
-    nk_layout_row_static(ctx, 30, 120, 1);
+    nk_layout_row_static(ctx, 30, layout_width, 1);
     if (nk_button_label(ctx, "Toggle FXAA")) {
       renderer_fxaa_enabled = renderer_fxaa_enabled == 0 ? 1 : 0;
     }
 
-    nk_layout_row_static(ctx, 30, 120, 1);
+    nk_layout_row_static(ctx, 30, layout_width, 1);
     if (nk_button_label(ctx, "Toggle SSAO")) {
       renderer_ssao_enabled = renderer_ssao_enabled == 0 ? 1 : 0;
     }
 
-    nk_layout_row_static(ctx, 30, 120, 1);
+    nk_layout_row_static(ctx, 30, layout_width, 1);
     if (nk_button_label(ctx, "Toggle pcf")) {
       renderer_shadow_pcf_enabled = renderer_shadow_pcf_enabled == 0 ? 1 : 0;
     }
 
     char camera_pos[128];
-    snprintf(camera_pos, 128, "camera: %f %f %f | %f %f %f\n", cam->pos[0], cam->pos[1], cam->pos[2], cam->front[0], cam->front[1], cam->front[2]);
+    snprintf(camera_pos, 128, "camera: %.1f %.1f %.1f | %.1f %.1f %.1f\n", cam->pos[0], cam->pos[1], cam->pos[2], cam->front[0], cam->front[1], cam->front[2]);
     nk_label(ctx, camera_pos, NK_TEXT_LEFT);
 
     char ui_fps[256];
