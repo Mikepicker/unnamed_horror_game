@@ -1,17 +1,22 @@
-# OpenGL Racing Game Prototype
+# OpenGL Horror Game (WIP)
 
-![screen](screenshots/screen_1.png)
+![screen](screenshots/portal.mp4)
 
-Features:
+This is a WIP for a still unnamed horror game and engine based on:
+- SDL2
+- OpenGL (3.3)
+- OpenAL
+
+Engine Features:
 - Modern rendering pipeline (GLSL)
 - Shadow mapping (with PCF)
-- Custom toon shader
+- FXAA
+- SSAO
 - Multiple lights
 - Simple rendering engine (OpenGL)
-- Simple physics engine (car-road collision tests)
+- Custom Collada parser (written in python)
 - Custom OBJ / MTL importer
-- Built-in tracks editor (serializer included)
+- Skeletal Animations
 - UI with [Nuklear](https://github.com/vurtun/nuklear)
-- Joysticks integration
 - OpenAL implementation
-- Written in C
+- Written in C (yes.. C! :D)
