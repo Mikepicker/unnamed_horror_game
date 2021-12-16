@@ -1,6 +1,6 @@
 # OpenGL Horror Game (WIP)
 
-![screen](screenshots/portal.mp4)
+![screen](screenshots/screen_1.png)
 
 This is a WIP for a still unnamed horror game and engine based on:
 - SDL2
